@@ -13,6 +13,7 @@ import yaml
 
 from .python_analyzer import analyze
 from .resolution import Environment
+from .topology import Topology
 
 URL = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*://")
 SKIP = {".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"}
@@ -39,6 +40,7 @@ def scan(root: Path, excludes: list[str] | None = None) -> dict:
         raise ValueError(f"Not a directory: {root}")
     findings, diagnostics = [], []
     environment = Environment(safe_target)
+    topology = Topology()
 
     def emit(file, line, direction, kind, target, status="confirmed", protocol=None, port=None, reference=None, evidence=None):
         target = safe_target(str(target)) if URL.match(str(target)) else str(target)
@@ -65,13 +67,19 @@ def scan(root: Path, excludes: list[str] | None = None) -> dict:
             if path.suffix == ".py":
                 analyze(source, rel, emit, safe_target)
             elif path.suffix in {".yaml", ".yml"}:
-                for doc in yaml.safe_load_all(source):
+                for document_index, doc in enumerate(yaml.safe_load_all(source)):
                     config_scan(doc, rel, emit)
                     if isinstance(doc, dict):
+                        topology.document(doc, rel, f"documents[{document_index}]")
                         kubernetes_scan(doc, rel, emit)
                         environment.document(doc, rel)
             elif path.suffix == ".json":
-                config_scan(json.loads(source), rel, emit)
+                doc = json.loads(source)
+                config_scan(doc, rel, emit)
+                if isinstance(doc, dict):
+                    topology.document(doc, rel, "document")
+                    kubernetes_scan(doc, rel, emit)
+                    environment.document(doc, rel)
             elif path.suffix == ".toml":
                 config_scan(tomllib.loads(source), rel, emit)
             else:
@@ -89,8 +97,10 @@ def scan(root: Path, excludes: list[str] | None = None) -> dict:
             diagnostics.append(dict(file=rel, message=type(exc).__name__))
     diagnostics.extend(environment.build())
     environment.resolve(findings)
+    connections, topology_diagnostics = topology.build()
+    diagnostics.extend(topology_diagnostics)
     unique = {json.dumps(f, sort_keys=True): f for f in findings}
-    return dict(schema_version="1", findings=sorted(unique.values(), key=lambda f: (f["file"], f["line"] or 0, f["kind"], f["target"])), diagnostics=diagnostics)
+    return dict(schema_version="1", findings=sorted(unique.values(), key=lambda f: (f["file"], f["line"] or 0, f["kind"], f["target"])), diagnostics=diagnostics, connections=connections)
 
 
 def config_scan(value, file, emit, key=""):
@@ -114,7 +124,7 @@ def kubernetes_scan(doc, file, emit):
     elif kind == "Service":
         for p in spec.get("ports", []):
             emit(file, None, "inbound", "service", name, "declared", p.get("protocol", "TCP").lower(), p.get("port"), f"targetPort={p.get('targetPort', p.get('port'))}")
-    elif kind in {"Pod", "Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob"}:
+    elif kind in {"Pod", "Deployment", "StatefulSet", "DaemonSet", "ReplicaSet", "Job", "CronJob"}:
         if kind == "CronJob":
             spec = spec.get("jobTemplate", {}).get("spec", {})
         pod = spec if kind == "Pod" else spec.get("template", {}).get("spec", {})

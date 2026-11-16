@@ -22,6 +22,8 @@
 
 의존성 검토, 선언된 노출 지점 확인, 네트워크 목록 내보내기에 활용할 수 있습니다. 정적 분석 도구이므로 결과는 코드와 설정의 선언을 의미하며, 실제 트래픽이나 연결 가능성을 보장하지 않습니다.
 
+> **개발 브랜치(`0.2.0.dev0`):** Kubernetes 연결 경로와 HTML 출력은 현재 소스에서 설치하면 사용할 수 있습니다. 기존 v0.1.1 다운로드 실행 파일에는 아직 포함되지 않았습니다.
+
 ## 실행 파일 다운로드
 
 **[netspector v0.1.1](https://github.com/uknowpro/netspector/releases/tag/v0.1.1)**에서 운영체제에 맞는 파일을 받아 압축을 풀어 실행하세요. Python을 별도로 설치할 필요가 없습니다.
@@ -54,14 +56,14 @@ netspector scan examples/demo
 
 Windows에서는 `.venv\Scripts\activate`로 활성화합니다. 의존성 설치 후 `python -m netspector`로도 실행할 수 있습니다.
 
-예제는 총 7개 결과를 생성합니다. `/health`, `/weather` Inbound 경로, 외부 HTTP 호출, 미확정 호출, 설정 URL 후보, 컨테이너 8000 포트, Service 80 포트가 포함됩니다. `NOTIFY_URL` 동적 호출에는 `deployment.yaml`에서 발견한 `https://notify.example.com/events`와 출처가 후보로 연결됩니다. 실제 배포와 소스의 대응 관계가 확정된 것은 아닙니다.
+예제는 총 8개 발견 항목과 2개 연결 경로를 생성합니다. `/health`, `/weather` Inbound 경로, 외부 HTTP 호출, 미확정 호출, 설정 URL 후보, 컨테이너 8000 포트, Service 80 포트, Ingress 선언이 포함됩니다. `NOTIFY_URL` 동적 호출에는 `deployment.yaml`에서 발견한 `https://notify.example.com/events`와 출처가 후보로 연결됩니다. 실제 배포와 소스의 대응 관계가 확정된 것은 아닙니다.
 
 ## 현재 지원 범위
 
 | 대상 | 추출 정보 |
 | --- | --- |
 | Python | FastAPI/APIRouter의 문자열 경로, requests/httpx HTTP 메서드 호출, 기본 import 별칭, 지역·모듈 클라이언트 인스턴스, 단일 직선형 상수 할당 |
-| Kubernetes YAML | Pod·Deployment·StatefulSet·DaemonSet·Job·CronJob의 컨테이너 포트, Service 포트와 targetPort 참조, Ingress 호스트·경로, 다중 문서 YAML과 List, 환경변수와 ConfigMap 참조 |
+| Kubernetes YAML / JSON | Pod·Deployment·StatefulSet·DaemonSet·Job·CronJob의 컨테이너 포트, Service 포트와 targetPort 참조, Ingress 호스트·경로, 다중 문서 YAML과 List, 환경변수와 ConfigMap 참조 |
 | JSON·YAML·TOML | URL 문자열과 설정 키 경로 |
 | `.env*` | URL 형태의 할당 값과 줄 번호 |
 
@@ -75,17 +77,18 @@ netspector scan ./project
 netspector scan ./project --direction outbound
 netspector scan ./project --format json
 netspector scan ./project --format csv --output connections.csv
+netspector scan ./project --format html --output report.html
 netspector scan ./project --exclude 'tests/*' --exclude '**/fixtures/**'
 ```
 
 | 옵션 | 설명 |
 | --- | --- |
-| `--format` | `table` 기본값, `json`, `csv` |
+| `--format` | `table` 기본값, `json`, `csv`, `html` |
 | `--direction` | `inbound`, `outbound`, `unknown`; 생략하면 전체 |
 | `--exclude` | 상대 경로 glob, 여러 번 지정 가능; 셸에서는 따옴표 사용 |
 | `--output` | 표준 출력 대신 파일로 저장 |
 
-종료 코드: **0** 정상 완료, **1** 일부 파일 분석 실패·건너뜀, **2** 잘못된 인자·경로 또는 출력 실패입니다. 진단 정보는 stderr와 JSON에 포함되며 CSV에는 분석 결과만 포함됩니다.
+종료 코드: **0** 정상 완료, **1** 일부 파일 분석 실패·건너뜀, **2** 잘못된 인자·경로 또는 출력 실패입니다. 진단 정보는 stderr·JSON·HTML에 포함되며, CSV에는 발견 항목과 연결 경로가 포함됩니다. 연결 참조를 찾지 못하면 미해결 경로로 표시하며 파싱 실패로 처리하지 않습니다.
 
 `.git`, `.venv`, `venv`, `node_modules`, `__pycache__`, `dist`, `build` 디렉터리와 심볼릭 링크 파일을 제외합니다. 지원 파일 중 2 MB 초과 파일은 진단과 함께 건너뜁니다. `.gitignore`는 분석 제외 규칙으로 사용하지 않으므로 추가 제외는 `--exclude`로 지정합니다.
 
@@ -97,9 +100,10 @@ netspector scan ./project --exclude 'tests/*' --exclude '**/fixtures/**'
 | `declared` | Inbound 경로·포트·노출 선언 확인 |
 | `candidate` | 설정 URL 또는 환경변수의 가능한 대상. 실제 배포 연결은 미확정 |
 | `inferred` | 단일 직선형 Python 할당을 따라 대상 해석 |
-| `unresolved` | 호출·경로를 인식했으나 대상이 동적 값 |
+| `unresolved` | 동적 대상 또는 연결 경로의 참조를 찾지 못함 |
+| `partial` | Service가 워크로드를 선택했지만 숫자 targetPort와 일치하는 컨테이너 포트 선언이 없음 |
 
-결과 필드는 `direction`, `kind`, `target`, `protocol`, `port`, `status`, `file`, `line`, `reference`, `evidence`, `candidates`입니다. JSON은 `schema_version: "1"`, `findings`, `diagnostics`로 구성됩니다. 파일 경로는 스캔 루트 기준 상대 경로입니다. 구조화된 설정은 가능한 경우 키 경로를 제공하며 줄 번호는 `null`입니다. 결과를 정렬하고 완전히 동일한 항목을 제거합니다.
+결과 필드는 `direction`, `kind`, `target`, `protocol`, `port`, `status`, `file`, `line`, `reference`, `evidence`, `candidates`입니다. JSON은 `schema_version: "1"`, `findings`, `connections`, `diagnostics`로 구성됩니다. 파일 경로는 스캔 루트 기준 상대 경로입니다. 구조화된 설정은 가능한 경우 키 경로를 제공하며 줄 번호는 `null`입니다. 결과를 정렬하고 완전히 동일한 항목을 제거합니다.
 
 URL의 인증 정보·쿼리·fragment는 출력에서 제거하고 CSV 수식 시작 문자를 이스케이프합니다. 내부 호스트명·URL 경로·앱 식별자는 남을 수 있으므로 공유 전 결과를 확인하세요.
 
@@ -119,6 +123,33 @@ httpx.post(URL)
 
 JSON은 구조화된 근거와 후보를 제공하고, CSV는 배열을 JSON 문자열 셀로 저장합니다. 터미널 표 아래에는 후보 URL과 선언 파일을 표시합니다. 기존 필드는 유지하며 `schema_version`은 `1`입니다. CSV에는 `evidence`, `candidates` 열이 추가되었습니다.
 
+## Kubernetes 연결 경로
+
+```text
+Ingress/weather-public (weather.example.com/)
+  → Service/weather:80
+  → Deployment/weather
+  → Container/api:8000
+```
+
+같은 namespace에서 Service의 모든 selector 항목과 Pod label 또는 워크로드의 **Pod 템플릿 label**을 비교합니다. namespace가 없으면 `default`로 처리하며 실제 클러스터 설정은 읽지 않습니다. Pod·Deployment·StatefulSet·DaemonSet·ReplicaSet·Job·CronJob을 지원합니다. 숫자·이름 형태의 `targetPort`와 일반 컨테이너의 포트·프로토콜을 연결합니다. `targetPort` 생략 시 Service 포트를 사용합니다. 숫자 대상의 컨테이너 포트 선언이 없으면 `partial`로 남깁니다. Kubernetes에서는 포트 선언 없이도 통신할 수 있기 때문입니다.
+
+Ingress는 Service 포트 번호·이름과 `defaultBackend`를 지원합니다. 경로마다 순서가 있는 `nodes`, 안정적인 `id`, `status`, `reasons`, 파일·문서·설정 키의 `evidence`를 제공합니다. 여러 대상은 모두 보존하고, 동일 리소스의 중복 선언이나 여러 컨테이너 포트 일치는 후보로 표시합니다. 누락된 Service·포트·selector는 미해결 이유를 남기며, selector가 없는 Service를 전체 워크로드에 연결하지 않습니다. ExternalName은 DNS를 조회하지 않고 선언만 표시합니다.
+
+Ingress의 리소스 backend, EndpointSlice, TLS·컨트롤러 동작, Pod 준비 상태, init container, 실제 도달 가능성은 분석하지 않습니다. Python 소스와 워크로드를 자동으로 연결하는 기능도 포함하지 않습니다.
+
+JSON은 기존 `schema_version: "1"`을 유지하면서 `connections`를 추가합니다. CSV는 기존 열에 `record_type`(`finding` 또는 `connection`)과 JSON 형식 `connection` 열을 추가합니다. 엔드포인트만 필요한 소비자는 `record_type=finding`으로 필터링하세요. `--direction outbound`에서는 Inbound 연결 경로를 제외합니다.
+
+설정 의미는 Kubernetes의 [Service](https://kubernetes.io/docs/concepts/services-networking/service/) 및 [Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/) 문서를 참고하세요.
+
+## 오프라인 HTML 보고서
+
+```bash
+netspector scan ./project --format html --output report.html
+```
+
+생성된 `report.html`을 브라우저로 열면 요약 수치, 연결 경로, 발견 항목, 펼쳐 볼 수 있는 근거, 진단을 확인할 수 있습니다. 검색·방향 필터는 로컬에서 동작하며 CDN·외부 리소스·엔드포인트 요청을 사용하지 않습니다. 소스 텍스트를 HTML 이스케이프하고 콘텐츠 보안 정책으로 스크립트를 제한합니다. JavaScript를 끄면 전체 결과가 표시됩니다. 내부 식별자가 포함될 수 있으므로 공유 전에 확인하세요.
+
 ## 구조
 
 ```text
@@ -126,20 +157,21 @@ JSON은 구조화된 근거와 후보를 제공하고, CSV는 배열을 JSON 문
     → Python AST / 안전한 YAML / JSON / TOML / dotenv 분석
     → 공통 결과 모델과 근거 위치
     → 정렬과 완전 중복 제거
-    → 표 / JSON / CSV
+    → 표 / JSON / CSV / HTML
 ```
 
 ## 제한 사항과 로드맵
 
 초기 버전은 전체 프로그램의 데이터 흐름을 분석하지 않습니다. 단일 직선형 할당만 해석하며, 재할당·조건부 할당·매개변수에 가려진 값은 미확정으로 남깁니다. 문자열 조합, 환경변수 기본값·확장, 래퍼 함수, 클래스 메서드, 람다, comprehension, 라우터 prefix·mount, Python 파일 간 참조는 미지원입니다. 함수 호출 간 실행 순서와 동적인 객체 변경은 모델링하지 않습니다. 환경변수 후보는 스캔 루트 전체에서 찾으므로 앱별로 스캔하거나 제외 옵션으로 범위를 제한하세요.
 
-Kubernetes 포트는 선언이며 실제 수신 상태를 의미하지 않습니다. Ingress TLS, 실제 도달 가능성, NetworkPolicy, Service와 워크로드 연결, Secret 참조와 실제 배포 환경 선택은 아직 분석하지 않습니다. ConfigMap은 컨테이너 환경변수 참조에 한해 지원합니다. 설정 URL 후보와 다른 결과가 중복될 수 있으며, 일부 파싱 실패 시 나머지 분석 결과는 유지합니다.
+Kubernetes 포트는 선언이며 실제 수신 상태를 의미하지 않습니다. Ingress TLS, 실제 도달 가능성, NetworkPolicy, Secret 참조와 실제 배포 환경 선택은 아직 분석하지 않습니다. ConfigMap은 컨테이너 환경변수 참조에 한해 지원합니다. 설정 URL 후보와 다른 결과가 중복될 수 있으며, 일부 파싱 실패 시 나머지 분석 결과는 유지합니다.
 
 다음 단계:
 
 - [x] 제한된 범위의 상수·환경변수 참조 해석과 값의 출처 추적
 - [x] Kubernetes 컨테이너 환경변수와 ConfigMap 참조
-- [ ] Kubernetes Service와 워크로드 연결
+- [x] Kubernetes Service와 워크로드 연결 및 Ingress 경로
+- [x] 검색과 근거를 제공하는 오프라인 HTML 보고서
 - [ ] Helm 렌더링 결과 및 명시적인 values 선택 지원
 - [ ] 인프라 적용 없이 Terraform 리소스·참조 분석
 - [ ] 추가 언어·프레임워크 및 DB·메시지 브로커 클라이언트 지원

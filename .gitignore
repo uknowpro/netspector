@@ -22,3 +22,4 @@ connections.csv
 Thumbs.db
 # Standalone release artifacts
 release-assets/
+report.html

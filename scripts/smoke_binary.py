@@ -37,7 +37,9 @@ with tempfile.TemporaryDirectory(prefix='netspector-release-') as temporary:
 
     assert run('--version').strip() == f'netspector {expected_version}'
     report = json.loads(run('scan', package / 'examples' / 'demo', '--format', 'json'))
-    assert len(report['findings']) == 7 and not report['diagnostics'], report
+    assert len(report['findings']) == 8 and not report['diagnostics'], report
+    assert any([n['kind'] for n in c['nodes']] == ['Ingress', 'Service', 'Deployment', 'Container'] for c in report['connections'])
+    assert '<!doctype html>' in run('scan', package / 'examples' / 'demo', '--format', 'html')
     candidate = next(f for f in report['findings'] if f['reference'] == 'env:NOTIFY_URL')
     assert candidate['candidates'][0]['target'] == 'https://notify.example.com/events'
     project = root / '한글 project'

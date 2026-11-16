@@ -8,6 +8,8 @@ from pathlib import Path
 
 from . import __version__
 from .scanner import scan
+from .html_report import render_html
+from .topology import path_label
 
 
 def main(argv=None):
@@ -16,11 +18,15 @@ def main(argv=None):
     commands = parser.add_subparsers(dest="command", required=True)
     command = commands.add_parser("scan", help="Statically scan a project directory")
     command.add_argument("path", type=Path)
-    command.add_argument("--format", choices=["table", "json", "csv"], default="table")
+    command.add_argument("--format", choices=["table", "json", "csv", "html"], default="table")
     command.add_argument("--direction", choices=["inbound", "outbound", "unknown"])
     command.add_argument("--exclude", action="append", default=[], metavar="GLOB")
     command.add_argument("--output", type=Path)
     args = parser.parse_args(argv)
+    # Reports are UTF-8 even when redirected from a Windows legacy-codepage shell.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
     try:
         excludes = list(args.exclude)
         if args.output:
@@ -31,14 +37,21 @@ def main(argv=None):
         report = scan(args.path, excludes)
         if args.direction:
             report["findings"] = [f for f in report["findings"] if f["direction"] == args.direction]
+            report["connections"] = [c for c in report["connections"] if c["direction"] == args.direction]
         if args.format == "json":
             output = json.dumps(report, indent=2, ensure_ascii=False) + "\n"
+        elif args.format == "html":
+            output = render_html(report)
         elif args.format == "csv":
             stream = io.StringIO(newline="")
-            writer = csv.DictWriter(stream, fieldnames=["direction", "kind", "target", "protocol", "port", "status", "file", "line", "reference", "evidence", "candidates"])
+            writer = csv.DictWriter(stream, fieldnames=["direction", "kind", "target", "protocol", "port", "status", "file", "line", "reference", "evidence", "candidates", "record_type", "connection"])
             writer.writeheader()
-            for finding in report["findings"]:
-                finding = {k: json.dumps(v, ensure_ascii=False, sort_keys=True) if isinstance(v, list) else v for k, v in finding.items()}
+            records = [dict(f, record_type="finding") for f in report["findings"]]
+            records += [dict(record_type="connection", direction=c["direction"], kind="network-path", target=path_label(c), status=c["status"],
+                             file=c["nodes"][0]["file"], reference=c["nodes"][0]["reference"], evidence=c["evidence"], connection=c)
+                        for c in report["connections"]]
+            for finding in records:
+                finding = {k: json.dumps(v, ensure_ascii=False, sort_keys=True) if isinstance(v, (list, dict)) else v for k, v in finding.items()}
                 # Keep untrusted source values from becoming spreadsheet formulas.
                 writer.writerow({k: "'" + v if isinstance(v, str) and v.startswith(("=", "+", "-", "@", "\t", "\r")) else v for k, v in finding.items()})
             output = stream.getvalue()
@@ -50,7 +63,13 @@ def main(argv=None):
             for finding in report["findings"]:
                 for candidate in finding["candidates"]:
                     output += f"  candidate for {finding['file']}:{finding['line']}: {candidate['target']} <- {candidate['file']} ({candidate['reference']})\n"
-            output += f"\n{len(report['findings'])} finding(s), {len(report['diagnostics'])} diagnostic(s)\n"
+            if report["connections"]:
+                output += "\nKubernetes network paths\n"
+                for connection in report["connections"]:
+                    reasons = ", ".join(connection["reasons"])
+                    output += f"  [{connection['status']}] {connection['namespace']}: {path_label(connection)}"
+                    output += f" ({reasons})\n" if reasons else "\n"
+            output += f"\n{len(report['findings'])} finding(s), {len(report['connections'])} network path(s), {len(report['diagnostics'])} diagnostic(s)\n"
         if args.output:
             args.output.write_text(output, encoding="utf-8")
         else:
