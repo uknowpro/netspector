@@ -20,3 +20,5 @@ connections.csv
 .vscode/
 .DS_Store
 Thumbs.db
+# Standalone release artifacts
+release-assets/

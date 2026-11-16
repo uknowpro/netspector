@@ -22,7 +22,22 @@
 
 의존성 검토, 선언된 노출 지점 확인, 네트워크 목록 내보내기에 활용할 수 있습니다. 정적 분석 도구이므로 결과는 코드와 설정의 선언을 의미하며, 실제 트래픽이나 연결 가능성을 보장하지 않습니다.
 
-## 빠른 시작
+## 실행 파일 다운로드
+
+**[netspector v0.1.0](https://github.com/uknowpro/netspector/releases/tag/v0.1.0)**에서 운영체제에 맞는 파일을 받아 압축을 풀어 실행하세요. Python을 별도로 설치할 필요가 없습니다.
+
+| 운영체제 | 다운로드 | 대상 |
+| --- | --- | --- |
+| Linux x64 | [tar.gz](https://github.com/uknowpro/netspector/releases/download/v0.1.0/netspector-0.1.0-linux-x86_64.tar.gz) | Ubuntu 22.04 이상 / glibc 2.35 이상 |
+| macOS Intel | [tar.gz](https://github.com/uknowpro/netspector/releases/download/v0.1.0/netspector-0.1.0-macos-x86_64.tar.gz) | macOS 15 이상 |
+| macOS Apple Silicon | [tar.gz](https://github.com/uknowpro/netspector/releases/download/v0.1.0/netspector-0.1.0-macos-arm64.tar.gz) | macOS 15 이상 |
+| Windows 10/11 x64 | [zip](https://github.com/uknowpro/netspector/releases/download/v0.1.0/netspector-0.1.0-windows-x86_64.zip) | Windows 10/11 호환 대상 |
+
+Linux/macOS에서는 `./netspector scan ./examples/demo`, Windows PowerShell에서는 `.\netspector.exe scan .\examples\demo`로 실행합니다.
+
+압축 파일을 풀어 Ubuntu 22.04, macOS 15의 두 아키텍처, Windows Server 2022에서 실행 검증합니다. Windows 10 실기기 검증은 아직 진행하지 않았습니다. Windows 파일은 미서명이며 macOS 파일은 Developer ID 서명·공증이 없어 다운로드 보호 기능에서 사용자 승인이 필요할 수 있습니다. [릴리스 노트](docs/releases/v0.1.0.md)와 `SHA256SUMS`를 확인하세요. Linux ARM64, Alpine/musl, Windows ARM64, 32비트 실행 파일은 제공하지 않습니다.
+
+## 소스에서 설치
 
 Python 3.11 이상과 pip가 필요합니다. 현재는 저장소에서 설치하며, PyPI 배포는 아직 제공하지 않습니다.
 
@@ -127,7 +142,8 @@ Kubernetes 포트는 선언이며 실제 수신 상태를 의미하지 않습니
 - [ ] Helm 렌더링 결과 및 명시적인 values 선택 지원
 - [ ] 인프라 적용 없이 Terraform 리소스·참조 분석
 - [ ] 추가 언어·프레임워크 및 DB·메시지 브로커 클라이언트 지원
-- [ ] 배포 패키지와 실제 프로젝트 기반 회귀 테스트 확대
+- [x] Linux·macOS·Windows 실행 파일 배포
+- [ ] 실제 프로젝트 기반 회귀 테스트 확대
 
 원본 Helm 템플릿과 Terraform `.tf`는 미지원입니다. 렌더링된 Helm YAML은 Kubernetes YAML로 분석할 수 있습니다.
 
@@ -139,7 +155,7 @@ python -m unittest discover -s tests -v
 python -m netspector scan examples/demo --format json
 ```
 
-테스트는 소스 추출, 민감 URL 제거, 동적 참조, 설정 후보, Kubernetes 포트, 제외, 부분 실패, 출력 재현성, CLI 형식을 검증합니다. CI는 Python 3.11–3.13에서 실행합니다.
+테스트는 소스 추출, 민감 URL 제거, 동적 참조, 설정 후보, Kubernetes 포트, 제외, 부분 실패, 출력 재현성, CLI 형식을 검증합니다. CI는 Linux·macOS·Windows Server의 Python 3.11–3.13에서 실행합니다. 태그 릴리스는 네 가지 실행 파일 패키지를 만들고, 소스 폴더 밖에서 압축을 풀어 한글 경로·JSON/CSV 출력·종료 코드를 검사합니다. wheel도 깨끗한 환경에 설치하여 실행합니다.
 
 분석기 추가 시 작은 입력 예제, 기대 결과, 오탐 방지 사례를 함께 제공해 주세요. 문서의 지원 범위는 테스트로 확인한 동작과 일치시켜 주세요.
 

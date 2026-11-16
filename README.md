@@ -22,7 +22,22 @@ Network knowledge is scattered across application code, environment files, and d
 
 Use it to review application dependencies, investigate declared exposure, or export an inventory for further analysis. It performs static analysis: a finding describes code or configuration, not observed traffic or verified reachability.
 
-## Quick start
+## Download standalone executables
+
+Download **[netspector v0.1.0](https://github.com/uknowpro/netspector/releases/tag/v0.1.0)**, extract the archive, and run the executable. Python is bundled.
+
+| System | Download | Target |
+| --- | --- | --- |
+| Linux x64 | [tar.gz](https://github.com/uknowpro/netspector/releases/download/v0.1.0/netspector-0.1.0-linux-x86_64.tar.gz) | Ubuntu 22.04+ / glibc 2.35+ |
+| macOS Intel | [tar.gz](https://github.com/uknowpro/netspector/releases/download/v0.1.0/netspector-0.1.0-macos-x86_64.tar.gz) | macOS 15+ |
+| macOS Apple Silicon | [tar.gz](https://github.com/uknowpro/netspector/releases/download/v0.1.0/netspector-0.1.0-macos-arm64.tar.gz) | macOS 15+ |
+| Windows 10/11 x64 | [zip](https://github.com/uknowpro/netspector/releases/download/v0.1.0/netspector-0.1.0-windows-x86_64.zip) | Windows 10/11 compatibility target |
+
+Linux/macOS: `./netspector scan ./examples/demo`. Windows PowerShell: `.\netspector.exe scan .\examples\demo`.
+
+Native archives are smoke-tested on Ubuntu 22.04, macOS 15 (both architectures), and Windows Server 2022. Windows 10 device testing is pending. Windows binaries are unsigned; macOS binaries are not Developer ID signed or notarized. Download protections may require user approval. See the [release notes](docs/releases/v0.1.0.md) for details and use the release's `SHA256SUMS` to check downloads. Linux ARM64, Alpine/musl, Windows ARM64, and 32-bit standalone binaries are not provided.
+
+## Install from source
 
 Requires Python 3.11+ and pip. Install from this repository; a PyPI release is not currently part of this project.
 
@@ -140,7 +155,8 @@ Planned next steps:
 - [ ] Helm rendered-manifest workflow and explicit values selection
 - [ ] Terraform resource/reference analysis without applying infrastructure
 - [ ] Additional language/framework analyzers and database/broker clients
-- [ ] Packaged releases and larger real-world regression fixtures
+- [x] Standalone releases for Linux, macOS, and Windows
+- [ ] Larger real-world regression fixtures
 
 Raw Helm templates and Terraform `.tf` files are not supported. Rendered Helm YAML can be scanned as Kubernetes YAML.
 
@@ -152,7 +168,7 @@ python -m unittest discover -s tests -v
 python -m netspector scan examples/demo --format json
 ```
 
-Tests cover source extraction, redaction, dynamic references, configuration candidates, Kubernetes ports, exclusions, partial errors, deterministic output, and CLI formats. CI runs on Python 3.11–3.13.
+Tests cover source extraction, redaction, dynamic references, configuration candidates, Kubernetes ports, exclusions, partial errors, deterministic output, and CLI formats. CI runs on Python 3.11–3.13 across Linux, macOS, and Windows Server. Tagged releases build four native archives and test their extracted executables outside the source checkout, including Unicode paths, JSON/CSV output, and error exit codes. Wheels are installed and exercised in a clean environment.
 
 Contributions are welcome. Include a small input fixture, expected findings, and false-positive cases when adding an analyzer. Keep claimed support aligned with tested behavior.
 
