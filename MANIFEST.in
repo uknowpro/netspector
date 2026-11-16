@@ -1,3 +1,5 @@
 include LICENSE README.md README.ko.md
 recursive-include examples *.py *.yaml
 recursive-include tests *.py
+recursive-include scripts *.py
+recursive-include docs/releases *.md

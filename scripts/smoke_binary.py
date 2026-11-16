@@ -10,8 +10,11 @@ import tempfile
 import zipfile
 from pathlib import Path
 
+from release_support import validate_windows_executable
+
 archive = Path(sys.argv[1]).resolve()
 expected_version = sys.argv[2]
+target = sys.argv[3]
 with tempfile.TemporaryDirectory(prefix='netspector-release-') as temporary:
     root = Path(temporary)
     if archive.suffix == '.zip':
@@ -22,6 +25,8 @@ with tempfile.TemporaryDirectory(prefix='netspector-release-') as temporary:
             bundle.extractall(root, filter='data')
     package, = root.iterdir()
     binary = package / ('netspector.exe' if os.name == 'nt' else 'netspector')
+    if target.startswith('windows-'):
+        print(validate_windows_executable(binary, target))
     environment = {k: v for k, v in os.environ.items() if k not in {'PYTHONPATH', 'PYTHONHOME'}}
     environment['PYTHONIOENCODING'] = 'utf-8'
 

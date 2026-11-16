@@ -3,24 +3,27 @@ import argparse
 import importlib.metadata
 import platform
 import shutil
-import sys
+import struct
 import tarfile
 import urllib.request
 import zipfile
 from pathlib import Path
 
 from netspector import __version__
+from release_support import TARGETS, validate_runtime, validate_windows_executable
 
 parser = argparse.ArgumentParser()
-parser.add_argument('target', choices=['linux-x86_64', 'macos-x86_64', 'macos-arm64', 'windows-x86_64'])
+parser.add_argument('target', choices=sorted(TARGETS))
 args = parser.parse_args()
-expected = {'linux': 'Linux', 'macos': 'Darwin', 'windows': 'Windows'}[args.target.split('-')[0]]
-assert platform.system() == expected, 'Build on the target operating system'
-assert platform.machine().lower() in ({'arm64', 'aarch64'} if args.target.endswith('arm64') else {'amd64', 'x86_64'})
+expected = TARGETS[args.target][0]
+pointer_bits = struct.calcsize('P') * 8
+validate_runtime(args.target, platform.system(), platform.machine(), pointer_bits)
 name = f'netspector-{__version__}-{args.target}'
 staging = Path('build') / name
 staging.mkdir(parents=True, exist_ok=True)
 exe = 'netspector.exe' if expected == 'Windows' else 'netspector'
+if expected == 'Windows':
+    print(validate_windows_executable(Path('dist') / exe, args.target))
 shutil.copy2(Path('dist') / exe, staging / exe)
 for file in ('LICENSE', 'README.md', 'README.ko.md'):
     shutil.copy2(file, staging / file)
@@ -40,6 +43,7 @@ with urllib.request.urlopen(url, timeout=60) as response:
     (licenses / 'Python-LICENSE.txt').write_bytes(response.read())
 (staging / 'BUILD-INFO.txt').write_text(
     f'netspector {__version__}\nTarget: {args.target}\nPython: {version}\n'
+    f'Python pointer width: {pointer_bits} bits\n'
     f'PyInstaller: {importlib.metadata.version("pyinstaller")}\n'
     f'PyYAML: {importlib.metadata.version("PyYAML")}\n'
     'License notices: licenses/\n', encoding='utf-8')
