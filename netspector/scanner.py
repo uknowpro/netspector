@@ -1,19 +1,21 @@
 """Conservative static analysis. Target code is never imported or executed."""
 from __future__ import annotations
 
-import ast
 import fnmatch
 import json
 import re
+import shlex
 import tomllib
 from pathlib import Path
 from urllib.parse import urlsplit
 
 import yaml
 
+from .python_analyzer import analyze
+from .resolution import Environment
+
 URL = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*://")
 SKIP = {".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"}
-METHODS = {"get", "post", "put", "patch", "delete", "head", "options"}
 
 
 def safe_target(value: str) -> str:
@@ -36,15 +38,16 @@ def scan(root: Path, excludes: list[str] | None = None) -> dict:
     if not root.is_dir():
         raise ValueError(f"Not a directory: {root}")
     findings, diagnostics = [], []
+    environment = Environment(safe_target)
 
-    def emit(file, line, direction, kind, target, status="confirmed", protocol=None, port=None, reference=None):
+    def emit(file, line, direction, kind, target, status="confirmed", protocol=None, port=None, reference=None, evidence=None):
         target = safe_target(str(target)) if URL.match(str(target)) else str(target)
         if URL.match(target):
             parsed = urlsplit(target)
             protocol = parsed.scheme
             port = parsed.port or {"http": 80, "https": 443}.get(protocol)
         findings.append(dict(direction=direction, kind=kind, target=target, protocol=protocol,
-                             port=port, status=status, file=file, line=line, reference=reference))
+                             port=port, status=status, file=file, line=line, reference=reference, evidence=evidence or [], candidates=[]))
 
     for path in sorted(root.rglob("*")):
         rel = path.relative_to(root).as_posix()
@@ -60,12 +63,13 @@ def scan(root: Path, excludes: list[str] | None = None) -> dict:
                 continue
             source = path.read_text(encoding="utf-8")
             if path.suffix == ".py":
-                python_scan(source, rel, emit)
+                analyze(source, rel, emit, safe_target)
             elif path.suffix in {".yaml", ".yml"}:
                 for doc in yaml.safe_load_all(source):
                     config_scan(doc, rel, emit)
                     if isinstance(doc, dict):
                         kubernetes_scan(doc, rel, emit)
+                        environment.document(doc, rel)
             elif path.suffix == ".json":
                 config_scan(json.loads(source), rel, emit)
             elif path.suffix == ".toml":
@@ -75,12 +79,16 @@ def scan(root: Path, excludes: list[str] | None = None) -> dict:
                     match = re.match(r"\s*(?:export\s+)?([\w]+)\s*=\s*(.*?)\s*$", line)
                     if match:
                         key, value = match.groups()
-                        value = value.strip("\"'")
+                        parts = shlex.split(value, comments=True, posix=True)
+                        value = parts[0] if len(parts) == 1 else ""
+                        environment.add(key, value, rel, lineno)
                         if URL.match(value):
                             emit(rel, lineno, "unknown", "configuration", value, "candidate", reference=key)
         except (OSError, UnicodeError, SyntaxError, ValueError, TypeError, AttributeError, yaml.YAMLError, RecursionError) as exc:
             # Parser messages can contain source secrets: only expose the error type.
             diagnostics.append(dict(file=rel, message=type(exc).__name__))
+    diagnostics.extend(environment.build())
+    environment.resolve(findings)
     unique = {json.dumps(f, sort_keys=True): f for f in findings}
     return dict(schema_version="1", findings=sorted(unique.values(), key=lambda f: (f["file"], f["line"] or 0, f["kind"], f["target"])), diagnostics=diagnostics)
 
@@ -117,60 +125,3 @@ def kubernetes_scan(doc, file, emit):
         for rule in spec.get("rules", []):
             for entry in rule.get("http", {}).get("paths", []):
                 emit(file, None, "inbound", "ingress", f"{rule.get('host', '*')}{entry.get('path', '/')}", "declared", "http")
-
-
-def python_scan(source, file, emit):
-    tree = ast.parse(source)
-    imports, constants, apps, clients = {}, {}, set(), set()
-    # Module-level bindings only; no unsafe propagation across functions/scopes.
-    def dotted(node):
-        if isinstance(node, ast.Name):
-            return imports.get(node.id, node.id)
-        if isinstance(node, ast.Attribute):
-            return f"{dotted(node.value)}.{node.attr}"
-        return ""
-
-    def value(node, allow_constants=True):
-        if isinstance(node, ast.Constant) and isinstance(node.value, str):
-            return node.value, None
-        if allow_constants and isinstance(node, ast.Name) and node.id in constants:
-            return constants[node.id], node.id
-        if isinstance(node, ast.Call) and dotted(node.func) in {"os.getenv", "os.environ.get"} and node.args:
-            arg = node.args[0]
-            if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
-                return "<dynamic>", f"env:{arg.value}"
-        if isinstance(node, ast.Subscript) and dotted(node.value) == "os.environ" and isinstance(node.slice, ast.Constant):
-            return "<dynamic>", f"env:{node.slice.value}"
-        return "<dynamic>", None
-
-    for node in tree.body:
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                imports[alias.asname or alias.name] = alias.name
-        elif isinstance(node, ast.ImportFrom):
-            for alias in node.names:
-                imports[alias.asname or alias.name] = f"{node.module}.{alias.name}"
-        elif isinstance(node, ast.Assign):
-            for target in node.targets:
-                if isinstance(target, ast.Name):
-                    literal, _ = value(node.value)
-                    if literal != "<dynamic>":
-                        constants[target.id] = literal
-                    if isinstance(node.value, ast.Call):
-                        constructor = dotted(node.value.func)
-                        if constructor in {"fastapi.FastAPI", "fastapi.APIRouter"}:
-                            apps.add(target.id)
-                        if constructor in {"requests.Session", "httpx.Client", "httpx.AsyncClient"}:
-                            clients.add(target.id)
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Call):
-            continue
-        name = dotted(node.func)
-        owner, _, method = name.rpartition(".")
-        arg = node.args[0] if node.args else next((k.value for k in node.keywords if k.arg in {"url", "path"}), None)
-        if method in METHODS and owner in {"requests", "httpx"} | clients:
-            target, ref = value(arg, False)
-            emit(file, node.lineno, "outbound", "http-client", safe_target(target), "unresolved" if target == "<dynamic>" else "confirmed", reference=ref)
-        elif method in METHODS | {"websocket", "api_route"} and owner in apps:
-            target, ref = value(arg, False)
-            emit(file, node.lineno, "inbound", "route", target, "unresolved" if target == "<dynamic>" else "declared", "websocket" if method == "websocket" else "http", reference=ref)

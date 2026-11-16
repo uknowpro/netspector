@@ -35,9 +35,10 @@ def main(argv=None):
             output = json.dumps(report, indent=2, ensure_ascii=False) + "\n"
         elif args.format == "csv":
             stream = io.StringIO(newline="")
-            writer = csv.DictWriter(stream, fieldnames=["direction", "kind", "target", "protocol", "port", "status", "file", "line", "reference"])
+            writer = csv.DictWriter(stream, fieldnames=["direction", "kind", "target", "protocol", "port", "status", "file", "line", "reference", "evidence", "candidates"])
             writer.writeheader()
             for finding in report["findings"]:
+                finding = {k: json.dumps(v, ensure_ascii=False, sort_keys=True) if isinstance(v, list) else v for k, v in finding.items()}
                 # Keep untrusted source values from becoming spreadsheet formulas.
                 writer.writerow({k: "'" + v if isinstance(v, str) and v.startswith(("=", "+", "-", "@", "\t", "\r")) else v for k, v in finding.items()})
             output = stream.getvalue()
@@ -46,6 +47,9 @@ def main(argv=None):
             rows += [[f["direction"], f["kind"], f["target"], str(f["port"] or "-"), f["status"], f"{f['file']}:{f['line'] or '-'}"] for f in report["findings"]]
             widths = [max(len(row[i]) for row in rows) for i in range(6)]
             output = "\n".join("  ".join(cell.ljust(widths[i]) for i, cell in enumerate(row)) for row in rows) + "\n"
+            for finding in report["findings"]:
+                for candidate in finding["candidates"]:
+                    output += f"  candidate for {finding['file']}:{finding['line']}: {candidate['target']} <- {candidate['file']} ({candidate['reference']})\n"
             output += f"\n{len(report['findings'])} finding(s), {len(report['diagnostics'])} diagnostic(s)\n"
         if args.output:
             args.output.write_text(output, encoding="utf-8")

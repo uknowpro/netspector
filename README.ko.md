@@ -38,14 +38,14 @@ netspector scan examples/demo
 
 Windows에서는 `.venv\Scripts\activate`로 활성화합니다. 의존성 설치 후 `python -m netspector`로도 실행할 수 있습니다.
 
-예제는 총 7개 결과를 생성합니다. `/health`, `/weather` Inbound 경로, 외부 HTTP 호출, 미확정 호출, 설정 URL 후보, 컨테이너 8000 포트, Service 80 포트가 포함됩니다. 각 항목은 독립적인 결과이며, 초기 버전에서는 설정 URL을 동적 호출과 자동으로 연결하지 않습니다.
+예제는 총 7개 결과를 생성합니다. `/health`, `/weather` Inbound 경로, 외부 HTTP 호출, 미확정 호출, 설정 URL 후보, 컨테이너 8000 포트, Service 80 포트가 포함됩니다. `NOTIFY_URL` 동적 호출에는 `deployment.yaml`에서 발견한 `https://notify.example.com/events`와 출처가 후보로 연결됩니다. 실제 배포와 소스의 대응 관계가 확정된 것은 아닙니다.
 
 ## 현재 지원 범위
 
 | 대상 | 추출 정보 |
 | --- | --- |
-| Python | FastAPI/APIRouter의 문자열 경로, requests/httpx HTTP 메서드 호출, 기본 import 별칭과 모듈 수준 클라이언트 인스턴스 |
-| Kubernetes YAML | Pod·Deployment·StatefulSet·DaemonSet·Job·CronJob의 컨테이너 포트, Service 포트와 targetPort 참조, Ingress 호스트·경로, 다중 문서 YAML과 List |
+| Python | FastAPI/APIRouter의 문자열 경로, requests/httpx HTTP 메서드 호출, 기본 import 별칭, 지역·모듈 클라이언트 인스턴스, 단일 직선형 상수 할당 |
+| Kubernetes YAML | Pod·Deployment·StatefulSet·DaemonSet·Job·CronJob의 컨테이너 포트, Service 포트와 targetPort 참조, Ingress 호스트·경로, 다중 문서 YAML과 List, 환경변수와 ConfigMap 참조 |
 | JSON·YAML·TOML | URL 문자열과 설정 키 경로 |
 | `.env*` | URL 형태의 할당 값과 줄 번호 |
 
@@ -79,12 +79,29 @@ netspector scan ./project --exclude 'tests/*' --exclude '**/fixtures/**'
 | --- | --- |
 | `confirmed` | 인식한 HTTP 호출에서 문자열 대상 확인. 실제 실행 확인은 아님 |
 | `declared` | Inbound 경로·포트·노출 선언 확인 |
-| `candidate` | 설정에 URL이 있으나 사용 여부와 방향 미확인 |
+| `candidate` | 설정 URL 또는 환경변수의 가능한 대상. 실제 배포 연결은 미확정 |
+| `inferred` | 단일 직선형 Python 할당을 따라 대상 해석 |
 | `unresolved` | 호출·경로를 인식했으나 대상이 동적 값 |
 
-결과 필드는 `direction`, `kind`, `target`, `protocol`, `port`, `status`, `file`, `line`, `reference`입니다. JSON은 `schema_version: "1"`, `findings`, `diagnostics`로 구성됩니다. 파일 경로는 스캔 루트 기준 상대 경로입니다. 구조화된 설정은 가능한 경우 키 경로를 제공하며 줄 번호는 `null`입니다. 결과를 정렬하고 완전히 동일한 항목을 제거합니다.
+결과 필드는 `direction`, `kind`, `target`, `protocol`, `port`, `status`, `file`, `line`, `reference`, `evidence`, `candidates`입니다. JSON은 `schema_version: "1"`, `findings`, `diagnostics`로 구성됩니다. 파일 경로는 스캔 루트 기준 상대 경로입니다. 구조화된 설정은 가능한 경우 키 경로를 제공하며 줄 번호는 `null`입니다. 결과를 정렬하고 완전히 동일한 항목을 제거합니다.
 
 URL의 인증 정보·쿼리·fragment는 출력에서 제거하고 CSV 수식 시작 문자를 이스케이프합니다. 내부 호스트명·URL 경로·앱 식별자는 남을 수 있으므로 공유 전 결과를 확인하세요.
+
+## 상수·환경변수 연결
+
+```python
+import os
+import httpx
+
+URL = os.getenv("NOTIFY_URL")
+httpx.post(URL)
+```
+
+한 번만 할당된 변수를 따라가며 `evidence`에 할당 파일과 줄 번호를 남깁니다. 환경변수 참조는 스캔한 `.env*` 및 Kubernetes 컨테이너 선언에서 찾습니다. `env.value`, `env.valueFrom.configMapKeyRef`, `envFrom.configMapRef`와 prefix를 지원합니다. ConfigMap은 namespace를 구분하며, 명시적인 `env` 항목이 같은 이름의 `envFrom` 값보다 우선합니다.
+
+일치하는 선언은 민감 정보를 제거한 URL과 출처를 `candidates`에 추가합니다. Kubernetes 후보에는 워크로드·namespace·컨테이너가 포함되며, ConfigMap 후보에는 참조한 Manifest를 `via`로 기록합니다. 후보가 하나여도 기본 대상은 `<dynamic>`, 상태는 `candidate`로 유지합니다. 같은 저장소에 있다고 실제 배포와 소스의 대응 관계가 확정되지는 않기 때문입니다. 여러 파일·워크로드·환경의 값은 임의 선택하지 않고 모두 후보로 보여줍니다. 참조되지 않은 ConfigMap이나 Secret은 환경변수 값으로 사용하지 않습니다.
+
+JSON은 구조화된 근거와 후보를 제공하고, CSV는 배열을 JSON 문자열 셀로 저장합니다. 터미널 표 아래에는 후보 URL과 선언 파일을 표시합니다. 기존 필드는 유지하며 `schema_version`은 `1`입니다. CSV에는 `evidence`, `candidates` 열이 추가되었습니다.
 
 ## 구조
 
@@ -98,14 +115,15 @@ URL의 인증 정보·쿼리·fragment는 출력에서 제거하고 CSV 수식 �
 
 ## 제한 사항과 로드맵
 
-초기 버전은 전체 프로그램의 데이터 흐름을 분석하지 않습니다. 변수, 문자열 조합, 래퍼 함수, 함수 내부 클라이언트, 라우터 prefix·mount, 파일 간 참조는 해석하지 않습니다. 인식한 호출의 직접 환경변수 조회는 가능한 경우 변수 이름을 보존합니다. import나 클라이언트 이름을 재정의하면 단순 이름 매칭으로 오탐할 수 있습니다.
+초기 버전은 전체 프로그램의 데이터 흐름을 분석하지 않습니다. 단일 직선형 할당만 해석하며, 재할당·조건부 할당·매개변수에 가려진 값은 미확정으로 남깁니다. 문자열 조합, 환경변수 기본값·확장, 래퍼 함수, 클래스 메서드, 람다, comprehension, 라우터 prefix·mount, Python 파일 간 참조는 미지원입니다. 함수 호출 간 실행 순서와 동적인 객체 변경은 모델링하지 않습니다. 환경변수 후보는 스캔 루트 전체에서 찾으므로 앱별로 스캔하거나 제외 옵션으로 범위를 제한하세요.
 
-Kubernetes 포트는 선언이며 실제 수신 상태를 의미하지 않습니다. Ingress TLS, 실제 도달 가능성, NetworkPolicy, Service와 워크로드 연결, ConfigMap·Secret 참조, 환경별 우선순위는 아직 분석하지 않습니다. 설정 URL 후보와 다른 결과가 중복될 수 있으며, 일부 파싱 실패 시 나머지 분석 결과는 유지합니다.
+Kubernetes 포트는 선언이며 실제 수신 상태를 의미하지 않습니다. Ingress TLS, 실제 도달 가능성, NetworkPolicy, Service와 워크로드 연결, Secret 참조와 실제 배포 환경 선택은 아직 분석하지 않습니다. ConfigMap은 컨테이너 환경변수 참조에 한해 지원합니다. 설정 URL 후보와 다른 결과가 중복될 수 있으며, 일부 파싱 실패 시 나머지 분석 결과는 유지합니다.
 
 다음 단계:
 
-- [ ] 범위를 고려한 상수·환경변수 참조 해석과 값의 출처 추적
-- [ ] Kubernetes Service와 워크로드 연결, ConfigMap 참조
+- [x] 제한된 범위의 상수·환경변수 참조 해석과 값의 출처 추적
+- [x] Kubernetes 컨테이너 환경변수와 ConfigMap 참조
+- [ ] Kubernetes Service와 워크로드 연결
 - [ ] Helm 렌더링 결과 및 명시적인 values 선택 지원
 - [ ] 인프라 적용 없이 Terraform 리소스·참조 분석
 - [ ] 추가 언어·프레임워크 및 DB·메시지 브로커 클라이언트 지원

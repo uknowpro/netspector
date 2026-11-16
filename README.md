@@ -45,20 +45,20 @@ DIRECTION  KIND            TARGET                                  PORT  STATUS
 inbound    route           /health                                 -     declared
 inbound    route           /weather                                -     declared
 outbound   http-client     https://weather.example.com/v1/current  443   confirmed
-outbound   http-client     <dynamic>                               -     unresolved
+outbound   http-client     <dynamic>                               -     candidate
 unknown    configuration   https://notify.example.com/events       443   candidate
 inbound    container-port  weather/api                             8000  declared
 inbound    service         weather                                 80    declared
 ```
 
-The actual table also includes a source column. These are independent findings; the initial version does not join the environment URL to the dynamic HTTP call.
+The actual table also includes a source column. The dynamic `NOTIFY_URL` call now carries a candidate target, `https://notify.example.com/events`, with its declaration in `deployment.yaml`. Candidates do not establish which deployment runs this source file.
 
 ## Current capabilities
 
 | Input | Extracted information |
 | --- | --- |
-| Python | Literal FastAPI/APIRouter route paths; requests/httpx HTTP method calls; basic import aliases and module-level client instances |
-| Kubernetes YAML | Container ports in Pod, Deployment, StatefulSet, DaemonSet, Job, CronJob; Service ports and targetPort references; Ingress host/path declarations; multi-document YAML and List resources |
+| Python | Literal FastAPI/APIRouter route paths; requests/httpx HTTP method calls; basic import aliases, local/module client instances, and unique straight-line constant bindings |
+| Kubernetes YAML | Container ports in Pod, Deployment, StatefulSet, DaemonSet, Job, CronJob; Service ports and targetPort references; Ingress host/path declarations; multi-document YAML and List resources; environment values and referenced ConfigMaps |
 | JSON, YAML, TOML | URL-valued strings with configuration key paths |
 | `.env*` | URL-valued assignments with line numbers |
 
@@ -92,12 +92,29 @@ Common dependency/build directories (`.git`, `.venv`, `venv`, `node_modules`, `_
 | --- | --- |
 | `confirmed` | A literal outbound target was found in a recognized HTTP call; not proof of execution |
 | `declared` | An inbound route, port, or exposure is explicitly declared |
-| `candidate` | A URL exists in configuration; its use and direction are not established |
+| `candidate` | A configuration URL or possible environment target; deployment association is not established |
+| `inferred` | A target was resolved through unique, straight-line Python bindings |
 | `unresolved` | A recognized call or route has a dynamic target |
 
-Each finding includes `direction`, `kind`, `target`, `protocol`, `port`, `status`, `file`, `line`, and `reference`. JSON wraps findings and diagnostics in a `schema_version: "1"` envelope. Paths are relative to the scanned root; structured configuration uses key references where available and `line: null`. Output is sorted and exact duplicates are removed.
+Each finding includes `direction`, `kind`, `target`, `protocol`, `port`, `status`, `file`, `line`, `reference`, `evidence`, and `candidates`. JSON wraps findings and diagnostics in a `schema_version: "1"` envelope. Paths are relative to the scanned root; structured configuration uses key references where available and `line: null`. Output is sorted and exact duplicates are removed.
 
 URL credentials, query strings, and fragments are omitted from reported URL targets. CSV cells starting with formula markers are escaped. Reports may still contain internal hostnames, URL paths, and application identifiers; review them before sharing.
+
+## Constant and environment resolution
+
+```python
+import os
+import httpx
+
+URL = os.getenv("NOTIFY_URL")
+httpx.post(URL)
+```
+
+netspector follows unique assignments and records their file/line provenance in `evidence`. For environment references it searches scanned `.env*` files and Kubernetes container declarations. Supported sources include `env.value`, `env.valueFrom.configMapKeyRef`, and `envFrom.configMapRef` (including prefixes). ConfigMap lookup respects namespace; explicit container `env` entries suppress the same name from `envFrom`.
+
+A matching declaration adds a redacted URL and provenance to `candidates`. Kubernetes candidates include workload, namespace, and container; ConfigMap candidates include the referring manifest as `via`. The primary target stays `<dynamic>` and status becomes `candidate`, even for a single match: repository proximity is not proof of an application/deployment relationship. Multiple files, workloads, or environment variants remain visible rather than silently choosing a winner. Unreferenced ConfigMaps and Secrets are not used as environment values.
+
+JSON includes structured evidence and candidates. CSV stores those arrays as JSON cells; terminal tables display candidate URLs and declaration files below findings. No schema fields were removed (`schema_version` remains `1`); CSV adds `evidence` and `candidates` columns.
 
 ## Architecture
 
@@ -111,14 +128,15 @@ Project files
 
 ## Limits and roadmap
 
-This is an initial, deliberately bounded implementation. It does not perform whole-program data-flow analysis. Variables, string interpolation, wrapper functions, local client instances, router mounting/prefix composition, and cross-file references are not resolved. Direct environment lookups in recognized calls retain their variable name when possible. Simple name matching can misclassify shadowed imports or client names.
+This is an initial, deliberately bounded implementation. It does not perform whole-program data-flow analysis. Only unique straight-line assignments are resolved; reassigned names, conditional bindings, and parameter shadowing remain unresolved. String interpolation, environment defaults/expansion, wrapper functions, class methods, lambdas, comprehensions, router mounting/prefix composition, and cross-file Python references are unsupported. Source analysis does not model execution order across function calls or dynamic monkey-patching. Environment declarations are searched across the scan root, so scan each application separately or use exclusions to limit candidates.
 
-Kubernetes ports indicate declarations, not actual listeners. Ingress TLS, effective reachability, NetworkPolicy, service-to-workload correlation, ConfigMap/Secret resolution, and environment-specific overrides are not modeled. Generic URL findings may overlap with source findings. Parser failures preserve other scan results.
+Kubernetes ports indicate declarations, not actual listeners. Ingress TLS, effective reachability, NetworkPolicy, service-to-workload correlation, Secret resolution and deployment/environment selection are not modeled. ConfigMap references are supported only for container environment declarations. Generic URL findings may overlap with source findings. Parser failures preserve other scan results.
 
 Planned next steps:
 
-- [ ] Scoped constant and environment-reference resolution with provenance
-- [ ] Kubernetes Service → workload correlation and ConfigMap references
+- [x] Bounded constant and environment-reference resolution with provenance
+- [x] Kubernetes container environment and ConfigMap references
+- [ ] Kubernetes Service → workload correlation
 - [ ] Helm rendered-manifest workflow and explicit values selection
 - [ ] Terraform resource/reference analysis without applying infrastructure
 - [ ] Additional language/framework analyzers and database/broker clients
