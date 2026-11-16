@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: weather
+spec:
+  selector:
+    matchLabels: {app: weather}
+  template:
+    metadata:
+      labels: {app: weather}
+    spec:
+      containers:
+        - name: api
+          image: example/weather:demo
+          ports:
+            - containerPort: 8000
+          env:
+            - name: NOTIFY_URL
+              value: https://notify.example.com/events
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: weather
+spec:
+  selector: {app: weather}
+  ports:
+    - port: 80
+      targetPort: 8000

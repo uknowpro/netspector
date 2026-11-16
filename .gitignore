@@ -1,0 +1,22 @@
+# Python and packaging
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.coverage
+htmlcov/
+# Local secrets and generated output
+.env
+.env.*
+!.env.example
+connections.json
+connections.csv
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
