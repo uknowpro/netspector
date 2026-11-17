@@ -23,23 +23,22 @@
 의존성 검토, 선언된 노출 지점 확인, 네트워크 목록 내보내기에 활용할 수 있습니다. 정적 분석 도구이므로 결과는 코드와 설정의 선언을 의미하며, 실제 트래픽이나 연결 가능성을 보장하지 않습니다.
 
 
-> **소스 미리보기(`0.3.0.dev0`):** 아래의 프로젝트·호스트 그래프는 현재 소스에서 사용할 수 있습니다. v0.2.0 다운로드 파일은 이전 HTML 레이아웃을 사용합니다.
 
 ## 실행 파일 다운로드
 
-**[netspector v0.2.0](https://github.com/uknowpro/netspector/releases/tag/v0.2.0)**에서 운영체제에 맞는 파일을 받아 압축을 풀어 실행하세요. Python을 별도로 설치할 필요가 없습니다.
+**[netspector v0.3.0](https://github.com/uknowpro/netspector/releases/tag/v0.3.0)**에서 운영체제에 맞는 파일을 받아 압축을 풀어 실행하세요. Python을 별도로 설치할 필요가 없습니다.
 
 | 운영체제 | 다운로드 | 대상 |
 | --- | --- | --- |
-| Linux x64 | [tar.gz](https://github.com/uknowpro/netspector/releases/download/v0.2.0/netspector-0.2.0-linux-x86_64.tar.gz) | Ubuntu 22.04 이상 / glibc 2.35 이상 |
-| macOS Intel | [tar.gz](https://github.com/uknowpro/netspector/releases/download/v0.2.0/netspector-0.2.0-macos-x86_64.tar.gz) | macOS 15 이상 |
-| macOS Apple Silicon | [tar.gz](https://github.com/uknowpro/netspector/releases/download/v0.2.0/netspector-0.2.0-macos-arm64.tar.gz) | macOS 15 이상 |
-| Windows 10 x86 (32비트) | [zip](https://github.com/uknowpro/netspector/releases/download/v0.2.0/netspector-0.2.0-windows-x86.zip) | 32비트 Windows 10 호환 대상 |
-| Windows 10/11 x64 | [zip](https://github.com/uknowpro/netspector/releases/download/v0.2.0/netspector-0.2.0-windows-x86_64.zip) | Windows 10/11 호환 대상 |
+| Linux x64 | [tar.gz](https://github.com/uknowpro/netspector/releases/download/v0.3.0/netspector-0.3.0-linux-x86_64.tar.gz) | Ubuntu 22.04 이상 / glibc 2.35 이상 |
+| macOS Intel | [tar.gz](https://github.com/uknowpro/netspector/releases/download/v0.3.0/netspector-0.3.0-macos-x86_64.tar.gz) | macOS 15 이상 |
+| macOS Apple Silicon | [tar.gz](https://github.com/uknowpro/netspector/releases/download/v0.3.0/netspector-0.3.0-macos-arm64.tar.gz) | macOS 15 이상 |
+| Windows 10 x86 (32비트) | [zip](https://github.com/uknowpro/netspector/releases/download/v0.3.0/netspector-0.3.0-windows-x86.zip) | 32비트 Windows 10 호환 대상 |
+| Windows 10/11 x64 | [zip](https://github.com/uknowpro/netspector/releases/download/v0.3.0/netspector-0.3.0-windows-x86_64.zip) | Windows 10/11 호환 대상 |
 
 Linux/macOS에서는 `./netspector scan ./examples/demo`, Windows PowerShell에서는 `.\netspector.exe scan .\examples\demo`로 실행합니다.
 
-압축 파일을 풀어 Ubuntu 22.04, macOS 15의 두 아키텍처, Windows Server 2022에서 실행 검증합니다. x86 버전은 32비트 Python으로 빌드하고 압축 전후 PE32/I386 실행 파일 헤더를 검증합니다. Windows 두 버전의 실행 검증은 Windows Server 2022에서 수행하며, x86은 WOW64로 실행합니다. 32비트 Windows 10 실기기 검증은 아직 진행하지 않았습니다. Windows 파일은 미서명이며 macOS 파일은 Developer ID 서명·공증이 없어 다운로드 보호 기능에서 사용자 승인이 필요할 수 있습니다. [릴리스 노트](docs/releases/v0.2.0.md)와 `SHA256SUMS`를 확인하세요. Linux ARM64, Alpine/musl, Windows ARM64, Linux/macOS 32비트 실행 파일은 제공하지 않습니다. 32비트 Windows에서는 `windows-x86.zip`을 선택하세요. `windows-x86_64.zip`은 64비트 Windows 전용입니다.
+압축 파일을 풀어 Ubuntu 22.04, macOS 15의 두 아키텍처, Windows Server 2022에서 실행 검증합니다. x86 버전은 32비트 Python으로 빌드하고 압축 전후 PE32/I386 실행 파일 헤더를 검증합니다. Windows 두 버전의 실행 검증은 Windows Server 2022에서 수행하며, x86은 WOW64로 실행합니다. 32비트 Windows 10 실기기 검증은 아직 진행하지 않았습니다. Windows 파일은 미서명이며 macOS 파일은 Developer ID 서명·공증이 없어 다운로드 보호 기능에서 사용자 승인이 필요할 수 있습니다. [릴리스 노트](docs/releases/v0.3.0.md)와 `SHA256SUMS`를 확인하세요. Linux ARM64, Alpine/musl, Windows ARM64, Linux/macOS 32비트 실행 파일은 제공하지 않습니다. 32비트 Windows에서는 `windows-x86.zip`을 선택하세요. `windows-x86_64.zip`은 64비트 Windows 전용입니다.
 
 ## 소스에서 설치
 
@@ -194,7 +193,7 @@ JSON은 기존 `schema_version: "1"`을 유지하면서 `connections`를 추가�
 netspector scan ./project --format html --output report.html
 ```
 
-생성된 `report.html`을 열면 프로젝트별 네트워크 그래프가 먼저 표시됩니다. 엔드포인트 목록·인프라 경로·진단은 아래에 접어두며 진단이 있으면 해당 영역을 펼칩니다. 노드나 연결을 클릭하면 포트·URL 경로·후보·원본 출처를 확인할 수 있습니다. 확대/축소, 프로젝트 선택, 검색·방향 필터를 지원합니다.
+생성된 `report.html`을 열면 프로젝트별 네트워크 그래프가 먼저 표시됩니다. 엔드포인트 목록·인프라 경로·진단은 아래에 접어두며 진단이 있으면 해당 영역을 펼칩니다. 노드나 연결을 클릭하면 포트·URL 경로·후보·원본 출처를 확인할 수 있습니다. 서버·게이트웨이·서비스·컨테이너 아이콘, 프로젝트 영역, 직각 연결선, 프로토콜·포트 라벨로 구성도를 표시합니다. 아이콘은 소스에서 발견한 논리적 역할이며 실제 물리 장비를 확인했다는 의미는 아닙니다. 확대/축소, 프로젝트 선택, 검색·방향 필터를 지원합니다. 노드를 영역 안에서 드래그하거나 포커스 후 방향키로 옮길 수 있습니다. **Reset layout**으로 자동 배치에 복귀하고 **Save SVG**로 현재 필터·배치·스타일을 포함한 그림을 저장합니다. SVG에는 펼쳐 보는 원본 목록을 포함하지 않습니다. 수동 배치는 현재 열린 페이지에서만 유지됩니다.
 
 - **같은 호스트는 노드 하나:** DNS 대소문자·끝의 점·IDNA와 IP 표기를 정규화합니다. 프로토콜·포트·URL 경로가 달라도 호스트 노드를 추가하지 않습니다. DNS 별칭이나 다른 IP를 같은 서버라고 추측하지 않습니다. `localhost`를 포함해 동일한 호스트 표기는 보고서 전체에서 공유하므로 물리 서버의 동일성까지 의미하지는 않습니다.
 - **방향별 연결 중복 제거:** 같은 출발지→도착지는 선 하나로 묶고 반대 방향은 같은 노드 사이의 별도 화살표로 나타냅니다. 포트·경로·서로 다른 출처는 연결에 보존합니다. 이미 방향이 확인된 연결의 설정 URL은 별도 선 대신 근거에 합칩니다. 설정만 확인된 관계는 화살표 없이, 후보·미해결 관계는 점선으로 표시합니다. 확정된 선언과 후보가 함께 있으면 실선을 사용하고 각 상태는 상세에 남깁니다.

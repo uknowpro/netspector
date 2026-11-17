@@ -23,23 +23,22 @@ Network knowledge is scattered across application code, environment files, and d
 Use it to review application dependencies, investigate declared exposure, or export an inventory for further analysis. It performs static analysis: a finding describes code or configuration, not observed traffic or verified reachability.
 
 
-> **Source preview (`0.3.0.dev0`):** The compact project/host graph described below is available from the current source. The v0.2.0 downloads still use the earlier HTML layout.
 
 ## Download standalone executables
 
-Download **[netspector v0.2.0](https://github.com/uknowpro/netspector/releases/tag/v0.2.0)**, extract the archive, and run the executable. Python is bundled.
+Download **[netspector v0.3.0](https://github.com/uknowpro/netspector/releases/tag/v0.3.0)**, extract the archive, and run the executable. Python is bundled.
 
 | System | Download | Target |
 | --- | --- | --- |
-| Linux x64 | [tar.gz](https://github.com/uknowpro/netspector/releases/download/v0.2.0/netspector-0.2.0-linux-x86_64.tar.gz) | Ubuntu 22.04+ / glibc 2.35+ |
-| macOS Intel | [tar.gz](https://github.com/uknowpro/netspector/releases/download/v0.2.0/netspector-0.2.0-macos-x86_64.tar.gz) | macOS 15+ |
-| macOS Apple Silicon | [tar.gz](https://github.com/uknowpro/netspector/releases/download/v0.2.0/netspector-0.2.0-macos-arm64.tar.gz) | macOS 15+ |
-| Windows 10 x86 (32-bit) | [zip](https://github.com/uknowpro/netspector/releases/download/v0.2.0/netspector-0.2.0-windows-x86.zip) | 32-bit Windows 10 compatibility target |
-| Windows 10/11 x64 | [zip](https://github.com/uknowpro/netspector/releases/download/v0.2.0/netspector-0.2.0-windows-x86_64.zip) | Windows 10/11 compatibility target |
+| Linux x64 | [tar.gz](https://github.com/uknowpro/netspector/releases/download/v0.3.0/netspector-0.3.0-linux-x86_64.tar.gz) | Ubuntu 22.04+ / glibc 2.35+ |
+| macOS Intel | [tar.gz](https://github.com/uknowpro/netspector/releases/download/v0.3.0/netspector-0.3.0-macos-x86_64.tar.gz) | macOS 15+ |
+| macOS Apple Silicon | [tar.gz](https://github.com/uknowpro/netspector/releases/download/v0.3.0/netspector-0.3.0-macos-arm64.tar.gz) | macOS 15+ |
+| Windows 10 x86 (32-bit) | [zip](https://github.com/uknowpro/netspector/releases/download/v0.3.0/netspector-0.3.0-windows-x86.zip) | 32-bit Windows 10 compatibility target |
+| Windows 10/11 x64 | [zip](https://github.com/uknowpro/netspector/releases/download/v0.3.0/netspector-0.3.0-windows-x86_64.zip) | Windows 10/11 compatibility target |
 
 Linux/macOS: `./netspector scan ./examples/demo`. Windows PowerShell: `.\netspector.exe scan .\examples\demo`.
 
-Native archives are smoke-tested on Ubuntu 22.04, macOS 15 (both architectures), and Windows Server 2022. The x86 build uses 32-bit Python and its PE32/I386 executable headers are verified before and after packaging. Both Windows builds are executed on Windows Server 2022 (x86 via WOW64); testing on a native 32-bit Windows 10 device is pending. Windows binaries are unsigned; macOS binaries are not Developer ID signed or notarized. Download protections may require user approval. See the [release notes](docs/releases/v0.2.0.md) for details and use the release's `SHA256SUMS` to check downloads. Linux ARM64, Alpine/musl, Windows ARM64, and 32-bit Linux/macOS standalone binaries are not provided. Choose `windows-x86.zip` for 32-bit Windows; `windows-x86_64.zip` requires 64-bit Windows.
+Native archives are smoke-tested on Ubuntu 22.04, macOS 15 (both architectures), and Windows Server 2022. The x86 build uses 32-bit Python and its PE32/I386 executable headers are verified before and after packaging. Both Windows builds are executed on Windows Server 2022 (x86 via WOW64); testing on a native 32-bit Windows 10 device is pending. Windows binaries are unsigned; macOS binaries are not Developer ID signed or notarized. Download protections may require user approval. See the [release notes](docs/releases/v0.3.0.md) for details and use the release's `SHA256SUMS` to check downloads. Linux ARM64, Alpine/musl, Windows ARM64, and 32-bit Linux/macOS standalone binaries are not provided. Choose `windows-x86.zip` for 32-bit Windows; `windows-x86_64.zip` requires 64-bit Windows.
 
 ## Install from source
 
@@ -206,7 +205,7 @@ See the Kubernetes [Service](https://kubernetes.io/docs/concepts/services-networ
 netspector scan ./project --format html --output report.html
 ```
 
-Open `report.html` in a browser. The first screen is a compact, interactive network graph. Endpoint tables, infrastructure paths, and diagnostics are collapsed below it (diagnostics open when present). Select a node or connection to inspect ports, URL paths, candidates, and original source evidence. Zoom, project selection, search, and direction filters run locally.
+Open `report.html` in a browser. The first screen is a compact, interactive network graph. Endpoint tables, infrastructure paths, and diagnostics are collapsed below it (diagnostics open when present). Select a node or connection to inspect ports, URL paths, candidates, and original source evidence. The diagram uses server, gateway, service, and container symbols, project boundaries, orthogonal connectors, and protocol/port labels. These symbols describe discovered logical roles, not verified physical equipment. Zoom, project selection, search, and direction filters run locally. Drag nodes inside their group to arrange the view, or focus a node and use the arrow keys. **Reset layout** restores the automatic layout. **Save SVG** downloads the currently filtered diagram with its styles and positions for sharing or documentation; it does not include the expandable source inventory. Layout changes last for this open page only.
 
 - **One host, one node:** DNS names are normalized for case, trailing dots, and IDNA; IP addresses use canonical notation. Scheme, port, and URL path do not create additional host nodes. DNS aliases and different IPs are not guessed to be the same machine. Host identities are shared across the report, including literal `localhost` names; this describes declared addresses, not physical machine identity.
 - **Directed, deduplicated connections:** repeated source → target pairs become one edge; the reverse direction remains a separate arrow using the same nodes. Ports, paths, and distinct evidence stay on the edge. Repeated configuration URLs supporting the same directed edge are included as evidence instead of adding another parallel line. Configuration-only associations have no arrow; candidates/unresolved edges are dashed. An edge with both concrete and candidate evidence uses a solid line, with all statuses retained in details.
