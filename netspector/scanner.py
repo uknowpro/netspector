@@ -12,11 +12,13 @@ from urllib.parse import urlsplit
 import yaml
 
 from .python_analyzer import analyze
+from .java_analyzer import analyze_java
+from .java_properties import properties
 from .resolution import Environment
 from .topology import Topology
 
 URL = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*://")
-SKIP = {".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"}
+SKIP = {".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build", "target", ".gradle"}
 
 
 def safe_target(value: str) -> str:
@@ -57,7 +59,7 @@ def scan(root: Path, excludes: list[str] | None = None) -> dict:
             continue
         if any(fnmatch.fnmatch(rel, p) or Path(rel).match(p) for p in excludes or []):
             continue
-        if not path.is_file() or path.suffix not in {".py", ".json", ".yaml", ".yml", ".toml"} and not path.name.startswith(".env"):
+        if not path.is_file() or path.suffix not in {".py", ".java", ".properties", ".json", ".yaml", ".yml", ".toml"} and not path.name.startswith(".env"):
             continue
         try:
             if path.stat().st_size > 2_000_000:
@@ -66,16 +68,23 @@ def scan(root: Path, excludes: list[str] | None = None) -> dict:
             source = path.read_text(encoding="utf-8")
             if path.suffix == ".py":
                 analyze(source, rel, emit, safe_target)
+            elif path.suffix == ".java":
+                analyze_java(source, rel, emit, safe_target)
+            elif path.suffix == ".properties":
+                for key, value, line in properties(source):
+                    environment.add('property:' + key, value, rel, line, reference=key)
+                    if URL.match(value):
+                        emit(rel, line, "unknown", "configuration", value, "candidate", reference=key)
             elif path.suffix in {".yaml", ".yml"}:
                 for document_index, doc in enumerate(yaml.safe_load_all(source)):
-                    config_scan(doc, rel, emit)
+                    config_scan(doc, rel, emit, environment=environment if path.name.startswith(("application", "bootstrap")) else None)
                     if isinstance(doc, dict):
                         topology.document(doc, rel, f"documents[{document_index}]")
                         kubernetes_scan(doc, rel, emit)
                         environment.document(doc, rel)
             elif path.suffix == ".json":
                 doc = json.loads(source)
-                config_scan(doc, rel, emit)
+                config_scan(doc, rel, emit, environment=environment if path.name.startswith(("application", "bootstrap")) else None)
                 if isinstance(doc, dict):
                     topology.document(doc, rel, "document")
                     kubernetes_scan(doc, rel, emit)
@@ -103,14 +112,16 @@ def scan(root: Path, excludes: list[str] | None = None) -> dict:
     return dict(schema_version="1", findings=sorted(unique.values(), key=lambda f: (f["file"], f["line"] or 0, f["kind"], f["target"])), diagnostics=diagnostics, connections=connections)
 
 
-def config_scan(value, file, emit, key=""):
+def config_scan(value, file, emit, key="", environment=None):
     if isinstance(value, dict):
         for k, v in value.items():
-            config_scan(v, file, emit, f"{key}.{k}".strip("."))
+            config_scan(v, file, emit, f"{key}.{k}".strip("."), environment)
     elif isinstance(value, list):
         for i, v in enumerate(value):
-            config_scan(v, file, emit, f"{key}[{i}]")
+            config_scan(v, file, emit, f"{key}[{i}]", environment)
     elif isinstance(value, str) and URL.match(value):
+        if environment is not None:
+            environment.add('property:' + key, value, file, reference=key)
         emit(file, None, "unknown", "configuration", value, "candidate", reference=key)
 
 

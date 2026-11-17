@@ -22,7 +22,7 @@
 
 의존성 검토, 선언된 노출 지점 확인, 네트워크 목록 내보내기에 활용할 수 있습니다. 정적 분석 도구이므로 결과는 코드와 설정의 선언을 의미하며, 실제 트래픽이나 연결 가능성을 보장하지 않습니다.
 
-> **개발 브랜치(`0.2.0.dev0`):** Kubernetes 연결 경로와 HTML 출력은 현재 소스에서 설치하면 사용할 수 있습니다. 기존 v0.1.1 다운로드 실행 파일에는 아직 포함되지 않았습니다.
+> **개발 브랜치(`0.2.0.dev0`):** Java 분석, Kubernetes 연결 경로와 HTML 출력은 현재 소스에서 설치하면 사용할 수 있습니다. 기존 v0.1.1 다운로드 실행 파일에는 아직 포함되지 않았습니다.
 
 ## 실행 파일 다운로드
 
@@ -62,9 +62,11 @@ Windows에서는 `.venv\Scripts\activate`로 활성화합니다. 의존성 설�
 
 | 대상 | 추출 정보 |
 | --- | --- |
+| Java (제한된 분석) | 직접 선언한 Spring 컨트롤러 경로, 타입을 확인한 RestTemplate 호출, JDK HttpRequest URI 선언, 상수·getenv·@Value 참조 |
 | Python | FastAPI/APIRouter의 문자열 경로, requests/httpx HTTP 메서드 호출, 기본 import 별칭, 지역·모듈 클라이언트 인스턴스, 단일 직선형 상수 할당 |
 | Kubernetes YAML / JSON | Pod·Deployment·StatefulSet·DaemonSet·Job·CronJob의 컨테이너 포트, Service 포트와 targetPort 참조, Ingress 호스트·경로, 다중 문서 YAML과 List, 환경변수와 ConfigMap 참조 |
 | JSON·YAML·TOML | URL 문자열과 설정 키 경로 |
+| `.properties` | URL 값, 키·값 이스케이프, 이어진 줄 및 줄 번호 |
 | `.env*` | URL 형태의 할당 값과 줄 번호 |
 
 분석 대상 코드를 import하거나 실행하지 않으며, YAML은 안전한 로더로 읽습니다. 발견한 주소로 접속하거나 현재 프로세스의 환경변수로 값을 보완하지 않습니다. Helm·Terraform 명령도 실행하지 않습니다.
@@ -90,7 +92,7 @@ netspector scan ./project --exclude 'tests/*' --exclude '**/fixtures/**'
 
 종료 코드: **0** 정상 완료, **1** 일부 파일 분석 실패·건너뜀, **2** 잘못된 인자·경로 또는 출력 실패입니다. 진단 정보는 stderr·JSON·HTML에 포함되며, CSV에는 발견 항목과 연결 경로가 포함됩니다. 연결 참조를 찾지 못하면 미해결 경로로 표시하며 파싱 실패로 처리하지 않습니다.
 
-`.git`, `.venv`, `venv`, `node_modules`, `__pycache__`, `dist`, `build` 디렉터리와 심볼릭 링크 파일을 제외합니다. 지원 파일 중 2 MB 초과 파일은 진단과 함께 건너뜁니다. `.gitignore`는 분석 제외 규칙으로 사용하지 않으므로 추가 제외는 `--exclude`로 지정합니다.
+`.git`, `.venv`, `venv`, `node_modules`, `__pycache__`, `dist`, `build`, `target`, `.gradle` 디렉터리와 심볼릭 링크 파일을 제외합니다. 지원 파일 중 2 MB 초과 파일은 진단과 함께 건너뜁니다. `.gitignore`는 분석 제외 규칙으로 사용하지 않으므로 추가 제외는 `--exclude`로 지정합니다.
 
 ## 결과 읽기
 
@@ -123,6 +125,30 @@ httpx.post(URL)
 
 JSON은 구조화된 근거와 후보를 제공하고, CSV는 배열을 JSON 문자열 셀로 저장합니다. 터미널 표 아래에는 후보 URL과 선언 파일을 표시합니다. 기존 필드는 유지하며 `schema_version`은 `1`입니다. CSV에는 `evidence`, `candidates` 열이 추가되었습니다.
 
+## Java·Spring 지원
+
+```bash
+netspector scan ./java-project --format html --output java-report.html
+netspector scan examples/java --format json
+```
+
+JDK·Maven·Gradle이나 네이티브 파서 의존성 없이 분석하므로 Windows x86 빌드에서도 사용할 수 있습니다. 주석·문자열을 구분하여 토큰과 선언 구조를 읽는 제한된 분석기이며, **Java 컴파일러나 전체 프로그램 타입 분석기는 아닙니다.**
+
+| 패턴 | 동작 |
+| --- | --- |
+| 직접 선언한 `@RestController` / `@Controller` | 클래스 `@RequestMapping` 접두어와 메서드의 `@RequestMapping`, `@GetMapping`, `@PostMapping`, `@PutMapping`, `@PatchMapping`, `@DeleteMapping` 경로 결합. `value`·`path` 배열 지원 |
+| 타입이 명시된 `RestTemplate` 필드·매개변수·지역 변수 | `getForObject`, `postForEntity`, `exchange`, `put`, `delete` 등 HTTP 메서드 분석. 첫 인자가 URL이 아닌 오버로드는 미확정 처리 |
+| JDK `HttpRequest.newBuilder(URI)` / `.newBuilder().uri(URI)` / 타입이 명시된 `HttpRequest.Builder.uri` | Outbound `http-request` **선언**으로 표시. `HttpClient.send` 실행이나 실제 트래픽을 의미하지 않음 |
+| 문자열 표현식 | 리터럴, 같은 클래스의 final 필드, 직선형 단일 할당 지역 변수, 모든 값이 알려진 문자열 결합, `URI.create(String)`·`new URI(String)` |
+| `System.getenv("NAME")` | 기존 dotenv·Kubernetes 환경변수 후보 연결 |
+| 필드의 `@Value("${key}")` | UTF-8 `.properties`, `application*.yaml/yml/json`, `bootstrap*.yaml/yml/json`의 정확한 키와 같은 이름의 환경변수에서 URL 후보 연결 |
+
+import 또는 완전한 패키지명이 확인된 Spring·HTTP 타입을 사용합니다. 메서드나 애너테이션 이름만 같은 사용자 클래스는 제외합니다. 템플릿 치환, 프로파일 우선순위, 유연한 설정 키 이름 변환, 기본값은 평가하지 않습니다. 여러 설정 파일의 값은 후보로 남기며 런타임 설정을 읽지 않습니다. properties의 이어진 줄과 Unicode 등 이스케이프를 지원합니다.
+
+아직 지원하지 않는 범위는 상속·인터페이스의 컨트롤러 매핑, 커스텀 조합 애너테이션, HTTP 메서드·파라미터·헤더 라우팅 조건, servlet context path, WebClient·RestClient·Feign·OkHttp·Apache HttpClient, DB·메시지 브로커, 파일 간 상수, 팩토리 반환 클라이언트, `var` 타입 추론, 필드 초기화의 HTTP 호출, 일반적인 빌더·데이터 흐름입니다. 람다 본문·익명/지역 클래스와 불확실한 중첩 바인딩은 건너뛰거나 미해결로 남깁니다. 텍스트 블록을 URL로 해석하지 않으며 문자열 밖의 Unicode 전처리, 전체 Java 문법 검증, 리플렉션, 생성 코드도 모델링하지 않습니다. 괄호나 리터럴이 닫히지 않으면 해당 파일의 진단을 남기고 다른 파일은 계속 분석합니다. 런타임 Bean 등록이나 메서드를 실행하지 않습니다.
+
+API 의미는 공식 [Spring 요청 매핑](https://docs.spring.io/spring-framework/reference/web/webmvc/mvc-controller/ann-requestmapping.html)과 [JDK HttpRequest](https://docs.oracle.com/en/java/javase/21/docs/api/java.net.http/java/net/http/HttpRequest.html) 문서를 참고하세요.
+
 ## Kubernetes 연결 경로
 
 ```text
@@ -154,7 +180,7 @@ netspector scan ./project --format html --output report.html
 
 ```text
 프로젝트 파일
-    → Python AST / 안전한 YAML / JSON / TOML / dotenv 분석
+    → Python AST / Java 토큰 / 안전한 YAML / JSON / TOML / properties / dotenv 분석
     → 공통 결과 모델과 근거 위치
     → 정렬과 완전 중복 제거
     → 표 / JSON / CSV / HTML
@@ -162,7 +188,7 @@ netspector scan ./project --format html --output report.html
 
 ## 제한 사항과 로드맵
 
-초기 버전은 전체 프로그램의 데이터 흐름을 분석하지 않습니다. 단일 직선형 할당만 해석하며, 재할당·조건부 할당·매개변수에 가려진 값은 미확정으로 남깁니다. 문자열 조합, 환경변수 기본값·확장, 래퍼 함수, 클래스 메서드, 람다, comprehension, 라우터 prefix·mount, Python 파일 간 참조는 미지원입니다. 함수 호출 간 실행 순서와 동적인 객체 변경은 모델링하지 않습니다. 환경변수 후보는 스캔 루트 전체에서 찾으므로 앱별로 스캔하거나 제외 옵션으로 범위를 제한하세요.
+초기 버전은 전체 프로그램의 데이터 흐름을 분석하지 않습니다. Python은 단일 직선형 할당만 해석하며, 재할당·조건부 할당·매개변수에 가려진 값은 미확정으로 남깁니다. 문자열 조합, 환경변수 기본값·확장, 래퍼 함수, 클래스 메서드, 람다, comprehension, 라우터 prefix·mount, Python 파일 간 참조는 미지원입니다. 함수 호출 간 실행 순서와 동적인 객체 변경은 모델링하지 않습니다. 환경변수 후보는 스캔 루트 전체에서 찾으므로 앱별로 스캔하거나 제외 옵션으로 범위를 제한하세요.
 
 Kubernetes 포트는 선언이며 실제 수신 상태를 의미하지 않습니다. Ingress TLS, 실제 도달 가능성, NetworkPolicy, Secret 참조와 실제 배포 환경 선택은 아직 분석하지 않습니다. ConfigMap은 컨테이너 환경변수 참조에 한해 지원합니다. 설정 URL 후보와 다른 결과가 중복될 수 있으며, 일부 파싱 실패 시 나머지 분석 결과는 유지합니다.
 
@@ -174,7 +200,8 @@ Kubernetes 포트는 선언이며 실제 수신 상태를 의미하지 않습니
 - [x] 검색과 근거를 제공하는 오프라인 HTML 보고서
 - [ ] Helm 렌더링 결과 및 명시적인 values 선택 지원
 - [ ] 인프라 적용 없이 Terraform 리소스·참조 분석
-- [ ] 추가 언어·프레임워크 및 DB·메시지 브로커 클라이언트 지원
+- [x] 초기 Java·Spring 및 JDK HTTP 요청 분석
+- [ ] 추가 Java 클라이언트·언어 및 DB·메시지 브로커 지원
 - [x] Linux·macOS·Windows 실행 파일 배포
 - [ ] 실제 프로젝트 기반 회귀 테스트 확대
 

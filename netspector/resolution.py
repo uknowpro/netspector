@@ -79,9 +79,9 @@ class Environment:
     def resolve(self, findings):
         for finding in findings:
             ref = finding.get('reference') or ''
-            if finding['kind'] != 'http-client' or not ref.startswith('env:'):
+            if finding['kind'] not in {'http-client', 'http-request'} or not ref.startswith(('env:', 'property:')):
                 continue
-            candidates = self.values.get(ref[4:], [])
+            candidates = self.values.get(ref[4:], []) if ref.startswith('env:') else self.values.get(ref, []) + self.values.get(ref[9:], [])
             # Repo-wide declarations are hypotheses, even when only one matches.
             if candidates:
                 finding['status'] = 'candidate'

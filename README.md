@@ -22,7 +22,7 @@ Network knowledge is scattered across application code, environment files, and d
 
 Use it to review application dependencies, investigate declared exposure, or export an inventory for further analysis. It performs static analysis: a finding describes code or configuration, not observed traffic or verified reachability.
 
-> **Development branch (`0.2.0.dev0`):** Kubernetes network paths and HTML export are available when installed from the current source. The downloadable v0.1.1 executables do not yet include these features.
+> **Development branch (`0.2.0.dev0`):** Java analysis, Kubernetes network paths, and HTML export are available when installed from the current source. The downloadable v0.1.1 executables do not yet include these features.
 
 ## Download standalone executables
 
@@ -76,9 +76,11 @@ The actual table also includes a source column. The dynamic `NOTIFY_URL` call no
 
 | Input | Extracted information |
 | --- | --- |
+| Java (bounded analysis) | Direct Spring controller mapping annotations; typed RestTemplate calls; JDK HttpRequest URI declarations; constants, getenv, and @Value references |
 | Python | Literal FastAPI/APIRouter route paths; requests/httpx HTTP method calls; basic import aliases, local/module client instances, and unique straight-line constant bindings |
 | Kubernetes YAML / JSON | Container ports in Pod, Deployment, StatefulSet, DaemonSet, Job, CronJob; Service ports, numeric/named targetPort resolution, selector-to-workload paths; Ingress host/path declarations; multi-document YAML and List resources; environment values and referenced ConfigMaps |
 | JSON, YAML, TOML | URL-valued strings with configuration key paths |
+| `.properties` | URL-valued properties, escaped keys/values, continuations, and line numbers |
 | `.env*` | URL-valued assignments with line numbers |
 
 No target application code is imported or executed. YAML uses a safe loader. The scanner does not contact discovered endpoints, read your process environment to resolve variables, or invoke Helm/Terraform.
@@ -104,7 +106,7 @@ netspector scan ./project --exclude 'tests/*' --exclude '**/fixtures/**'
 
 Exit codes: **0** complete scan; **1** partial scan with diagnostics; **2** invalid invocation, invalid root, or output failure. Diagnostics go to stderr and are also included in JSON and HTML. CSV contains findings and connection records. Missing topology references are reported as unresolved paths, not parser failures.
 
-Common dependency/build directories (`.git`, `.venv`, `venv`, `node_modules`, `__pycache__`, `dist`, `build`) and symbolic-link files are skipped. Supported files larger than 2 MB generate a diagnostic. `.gitignore` rules are not interpreted; use `--exclude` for additional exclusions.
+Common dependency/build directories (`.git`, `.venv`, `venv`, `node_modules`, `__pycache__`, `dist`, `build`, `target`, `.gradle`) and symbolic-link files are skipped. Supported files larger than 2 MB generate a diagnostic. `.gitignore` rules are not interpreted; use `--exclude` for additional exclusions.
 
 ## Understand the output
 
@@ -137,6 +139,30 @@ A matching declaration adds a redacted URL and provenance to `candidates`. Kuber
 
 JSON includes structured evidence and candidates. CSV stores those arrays as JSON cells; terminal tables display candidate URLs and declaration files below findings. No schema fields were removed (`schema_version` remains `1`); CSV includes `evidence` and `candidates` as JSON cells.
 
+## Java and Spring support
+
+```bash
+netspector scan ./java-project --format html --output java-report.html
+netspector scan examples/java --format json
+```
+
+Java is scanned without a JDK, Maven, Gradle, or native parser dependency, including in Windows x86 builds. The analyzer tokenizes comments and literals and inspects a bounded set of declarations; it is **not a Java compiler or a whole-program type resolver**.
+
+| Pattern | Behavior |
+| --- | --- |
+| Direct `@RestController` / `@Controller` classes | Class `@RequestMapping` prefixes combined with method `@RequestMapping`, `@GetMapping`, `@PostMapping`, `@PutMapping`, `@PatchMapping`, `@DeleteMapping` paths; `value`/`path` arrays supported |
+| Typed `RestTemplate` fields, parameters, scalar locals | Recognized HTTP methods such as `getForObject`, `postForEntity`, `exchange`, `put`, and `delete`; unknown first-argument overloads remain unresolved |
+| JDK `HttpRequest.newBuilder(URI)` / `.newBuilder().uri(URI)` / typed `HttpRequest.Builder.uri` | Outbound `http-request` **declarations**, not proof of `HttpClient.send` or actual traffic |
+| String expressions | Literals, same-class final fields, unique straight-line scalar locals, and fully known string concatenation; `URI.create(String)` and `new URI(String)` wrappers |
+| `System.getenv("NAME")` | Existing dotenv/Kubernetes environment candidates |
+| Field `@Value("${key}")` | Exact-key URL candidates from UTF-8 `.properties`, `application*.yaml/yml/json`, `bootstrap*.yaml/yml/json`, and exact-name environment declarations |
+
+Imports or fully qualified Spring/client types are required. Classes merely using the same method or annotation names are not treated as Spring/HTTP clients. Named placeholders, profile priority, relaxed property naming, and default values are not evaluated. Multiple configuration sources remain candidates; no runtime configuration is read. Properties files support continuations and escapes, including Unicode escapes.
+
+Remaining cases include inherited/interface controller mappings, custom composed annotations, HTTP-method/parameter/header routing constraints, servlet context paths, WebClient, RestClient, Feign, OkHttp, Apache HttpClient, database/broker clients, cross-file constants, factory-returned clients, `var` type inference, field-initializer HTTP calls, and general builder/data-flow analysis. Lambda bodies, anonymous/local classes, and uncertain nested bindings are skipped or left unresolved. Text blocks are skipped rather than interpreted as URLs. Unicode preprocessing outside string literals, full Java syntax validation, reflection, and generated code are not modeled. Unbalanced/unterminated lexical structures produce file diagnostics; other files continue scanning. Methods and runtime bean registration are not executed.
+
+See the official [Spring request mapping](https://docs.spring.io/spring-framework/reference/web/webmvc/mvc-controller/ann-requestmapping.html) and [JDK HttpRequest](https://docs.oracle.com/en/java/javase/21/docs/api/java.net.http/java/net/http/HttpRequest.html) documentation for API semantics.
+
 ## Kubernetes network paths
 
 ```text
@@ -166,7 +192,7 @@ Open `report.html` in a browser. The standalone file includes summary counts, co
 
 ```text
 Project files
-    → Python AST / safe YAML / JSON / TOML / dotenv readers
+    → Python AST / Java tokens / safe YAML / JSON / TOML / properties / dotenv readers
     → Common finding model + source evidence
     → Deterministic ordering and exact deduplication
     → Table / JSON / CSV / HTML
@@ -174,7 +200,7 @@ Project files
 
 ## Limits and roadmap
 
-This is an initial, deliberately bounded implementation. It does not perform whole-program data-flow analysis. Only unique straight-line assignments are resolved; reassigned names, conditional bindings, and parameter shadowing remain unresolved. String interpolation, environment defaults/expansion, wrapper functions, class methods, lambdas, comprehensions, router mounting/prefix composition, and cross-file Python references are unsupported. Source analysis does not model execution order across function calls or dynamic monkey-patching. Environment declarations are searched across the scan root, so scan each application separately or use exclusions to limit candidates.
+This is an initial, deliberately bounded implementation. It does not perform whole-program data-flow analysis. For Python, only unique straight-line assignments are resolved; reassigned names, conditional bindings, and parameter shadowing remain unresolved. String interpolation, environment defaults/expansion, wrapper functions, class methods, lambdas, comprehensions, router mounting/prefix composition, and cross-file Python references are unsupported. Source analysis does not model execution order across function calls or dynamic monkey-patching. Environment declarations are searched across the scan root, so scan each application separately or use exclusions to limit candidates.
 
 Kubernetes ports indicate declarations, not actual listeners. Ingress TLS, effective reachability, NetworkPolicy, Secret resolution and deployment/environment selection are not modeled. ConfigMap references are supported only for container environment declarations. Generic URL findings may overlap with source findings. Parser failures preserve other scan results.
 
@@ -186,7 +212,8 @@ Planned next steps:
 - [x] Offline HTML reports with search and evidence
 - [ ] Helm rendered-manifest workflow and explicit values selection
 - [ ] Terraform resource/reference analysis without applying infrastructure
-- [ ] Additional language/framework analyzers and database/broker clients
+- [x] Initial Java/Spring and JDK HTTP request analysis
+- [ ] Additional Java clients, languages, and database/broker clients
 - [x] Standalone releases for Linux, macOS, and Windows
 - [ ] Larger real-world regression fixtures
 

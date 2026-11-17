@@ -42,6 +42,12 @@ with tempfile.TemporaryDirectory(prefix='netspector-release-') as temporary:
     assert '<!doctype html>' in run('scan', package / 'examples' / 'demo', '--format', 'html')
     candidate = next(f for f in report['findings'] if f['reference'] == 'env:NOTIFY_URL')
     assert candidate['candidates'][0]['target'] == 'https://notify.example.com/events'
+    java = json.loads(run('scan', package / 'examples' / 'java', '--format', 'json'))
+    assert not java['diagnostics']
+    assert {f['target'] for f in java['findings'] if f['direction'] == 'inbound'} == {'/api/health', '/api/notify'}
+    assert any(f['kind'] == 'http-request' and f['target'] == 'https://audit.example.com/events' for f in java['findings'])
+    assert any(f['reference'] == 'property:notify.url' and f['candidates'] for f in java['findings'])
+    assert 'WeatherController.java' in run('scan', package / 'examples' / 'java', '--format', 'html')
     project = root / '한글 project'
     project.mkdir()
     (project / 'app.py').write_text('import httpx\nhttpx.get("https://example.com")\n', encoding='utf-8')
