@@ -16,6 +16,7 @@ from .java_analyzer import analyze_java
 from .java_properties import properties
 from .resolution import Environment
 from .topology import Topology
+from .network_graph import project_metadata
 from .configuration import Configurations, flatten, ini_entries, xml_entries
 
 URL = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*://")
@@ -45,6 +46,7 @@ def scan(root: Path, excludes: list[str] | None = None) -> dict:
     environment = Environment(safe_target)
     topology = Topology()
     configurations = Configurations()
+    project_files = []
 
     def emit(file, line, direction, kind, target, status="confirmed", protocol=None, port=None, reference=None, evidence=None):
         target = safe_target(str(target)) if URL.match(str(target)) else str(target)
@@ -61,6 +63,8 @@ def scan(root: Path, excludes: list[str] | None = None) -> dict:
             continue
         if any(fnmatch.fnmatch(rel, p) or Path(rel).match(p) for p in excludes or []):
             continue
+        if path.is_file():
+            project_files.append(rel)
         if not path.is_file() or path.suffix not in {".py", ".java", ".properties", ".json", ".yaml", ".yml", ".toml", ".ini", ".xml"} and not path.name.startswith(".env"):
             continue
         try:
@@ -116,7 +120,7 @@ def scan(root: Path, excludes: list[str] | None = None) -> dict:
     connections, topology_diagnostics = topology.build()
     diagnostics.extend(topology_diagnostics)
     unique = {json.dumps(f, sort_keys=True): f for f in findings}
-    return dict(schema_version="1", findings=sorted(unique.values(), key=lambda f: (f["file"], f["line"] or 0, f["kind"], f["target"])), diagnostics=diagnostics, connections=connections)
+    return dict(schema_version="1", project=project_metadata(root, project_files), findings=sorted(unique.values(), key=lambda f: (f["file"], f["line"] or 0, f["kind"], f["target"])), diagnostics=diagnostics, connections=connections)
 
 
 def kubernetes_scan(doc, file, emit):

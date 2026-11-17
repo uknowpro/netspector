@@ -41,7 +41,7 @@ def main(argv=None):
         if args.format == "json":
             output = json.dumps(report, indent=2, ensure_ascii=False) + "\n"
         elif args.format == "html":
-            output = render_html(report)
+            output = render_html(report, project_name=args.path.resolve().name)
         elif args.format == "csv":
             stream = io.StringIO(newline="")
             writer = csv.DictWriter(stream, fieldnames=["direction", "kind", "target", "protocol", "port", "status", "file", "line", "reference", "evidence", "candidates", "record_type", "connection"])

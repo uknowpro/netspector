@@ -54,6 +54,9 @@ with tempfile.TemporaryDirectory(prefix='netspector-release-') as temporary:
     assert {'https://api.example.com:443/v1', 'db.example.com:5432',
             'https://audit.example.com:8443/events', '/api/*'} <= config_targets
     assert 'services.ini' in run('scan', package / 'examples' / 'config', '--format', 'html')
+    graph_html = run('scan', package / 'examples' / 'network-map', '--format', 'html')
+    assert 'network-svg' in graph_html and 'shared.example.com' in graph_html
+    assert 'checkout' in graph_html and 'notifications' in graph_html
     project = root / '한글 project'
     project.mkdir()
     (project / 'app.py').write_text('import httpx\nhttpx.get("https://example.com")\n', encoding='utf-8')

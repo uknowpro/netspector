@@ -23,6 +23,8 @@ Network knowledge is scattered across application code, environment files, and d
 Use it to review application dependencies, investigate declared exposure, or export an inventory for further analysis. It performs static analysis: a finding describes code or configuration, not observed traffic or verified reachability.
 
 
+> **Source preview (`0.3.0.dev0`):** The compact project/host graph described below is available from the current source. The v0.2.0 downloads still use the earlier HTML layout.
+
 ## Download standalone executables
 
 Download **[netspector v0.2.0](https://github.com/uknowpro/netspector/releases/tag/v0.2.0)**, extract the archive, and run the executable. Python is bundled.
@@ -204,7 +206,17 @@ See the Kubernetes [Service](https://kubernetes.io/docs/concepts/services-networ
 netspector scan ./project --format html --output report.html
 ```
 
-Open `report.html` in a browser. The standalone file includes summary counts, connection paths, endpoint findings, expandable source evidence, and diagnostics. Search and direction filters run locally. No CDN, external assets, or endpoint requests are used. Source text is HTML-escaped, and the report restricts scripts with a content security policy. Without JavaScript, all records remain visible. Reports can contain internal identifiers and should be reviewed before sharing.
+Open `report.html` in a browser. The first screen is a compact, interactive network graph. Endpoint tables, infrastructure paths, and diagnostics are collapsed below it (diagnostics open when present). Select a node or connection to inspect ports, URL paths, candidates, and original source evidence. Zoom, project selection, search, and direction filters run locally.
+
+- **One host, one node:** DNS names are normalized for case, trailing dots, and IDNA; IP addresses use canonical notation. Scheme, port, and URL path do not create additional host nodes. DNS aliases and different IPs are not guessed to be the same machine. Host identities are shared across the report, including literal `localhost` names; this describes declared addresses, not physical machine identity.
+- **Directed, deduplicated connections:** repeated source → target pairs become one edge; the reverse direction remains a separate arrow using the same nodes. Ports, paths, and distinct evidence stay on the edge. Repeated configuration URLs supporting the same directed edge are included as evidence instead of adding another parallel line. Configuration-only associations have no arrow; candidates/unresolved edges are dashed. An edge with both concrete and candidate evidence uses a solid line, with all statuses retained in details.
+- **Project grouping:** the nearest scanned `pyproject.toml`, `setup.py`, `setup.cfg`, `package.json`, `pom.xml`, `build.gradle`, `build.gradle.kts`, `go.mod`, `Cargo.toml`, `composer.json`, or `*.csproj` directory defines the group. Nested projects remain separate. Files without a closer marker belong to the scan root. This is directory-based grouping, not runtime application discovery. Excluded markers do not create groups.
+- **Meaning of inbound:** path-only routes stay on their application node because no remote caller is known. An Ingress host is an exposure address, not a client identity. Kubernetes Service/workload/container nodes retain namespace and workload scope; source projects are not automatically connected to deployment resources.
+- **Compact but traceable:** endpoint rows with the same project, direction, target, and port are grouped; every source record remains expandable. JSON/CSV retain the original findings. JSON adds `project.roots` metadata without changing `schema_version`. The graph shows up to 160 nodes at once and explicitly reports truncation; use the project/search filters to inspect the remainder. Full grouped records remain below.
+
+JavaScript is needed for the interactive graph. Without it, the grouped tables and infrastructure paths remain accessible. Use `examples/network-map` for a two-application example sharing the same host.
+
+No CDN, external assets, or endpoint requests are used. Source text is HTML-escaped, and the report restricts scripts with a content security policy. Without JavaScript, all grouped records remain accessible in the expandable sections. Reports can contain internal identifiers and should be reviewed before sharing.
 
 ## Architecture
 
