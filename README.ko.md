@@ -22,23 +22,22 @@
 
 의존성 검토, 선언된 노출 지점 확인, 네트워크 목록 내보내기에 활용할 수 있습니다. 정적 분석 도구이므로 결과는 코드와 설정의 선언을 의미하며, 실제 트래픽이나 연결 가능성을 보장하지 않습니다.
 
-> **개발 브랜치(`0.2.0.dev0`):** Java 분석, Kubernetes 연결 경로와 HTML 출력은 현재 소스에서 설치하면 사용할 수 있습니다. 기존 v0.1.1 다운로드 실행 파일에는 아직 포함되지 않았습니다.
 
 ## 실행 파일 다운로드
 
-**[netspector v0.1.1](https://github.com/uknowpro/netspector/releases/tag/v0.1.1)**에서 운영체제에 맞는 파일을 받아 압축을 풀어 실행하세요. Python을 별도로 설치할 필요가 없습니다.
+**[netspector v0.2.0](https://github.com/uknowpro/netspector/releases/tag/v0.2.0)**에서 운영체제에 맞는 파일을 받아 압축을 풀어 실행하세요. Python을 별도로 설치할 필요가 없습니다.
 
 | 운영체제 | 다운로드 | 대상 |
 | --- | --- | --- |
-| Linux x64 | [tar.gz](https://github.com/uknowpro/netspector/releases/download/v0.1.1/netspector-0.1.1-linux-x86_64.tar.gz) | Ubuntu 22.04 이상 / glibc 2.35 이상 |
-| macOS Intel | [tar.gz](https://github.com/uknowpro/netspector/releases/download/v0.1.1/netspector-0.1.1-macos-x86_64.tar.gz) | macOS 15 이상 |
-| macOS Apple Silicon | [tar.gz](https://github.com/uknowpro/netspector/releases/download/v0.1.1/netspector-0.1.1-macos-arm64.tar.gz) | macOS 15 이상 |
-| Windows 10 x86 (32비트) | [zip](https://github.com/uknowpro/netspector/releases/download/v0.1.1/netspector-0.1.1-windows-x86.zip) | 32비트 Windows 10 호환 대상 |
-| Windows 10/11 x64 | [zip](https://github.com/uknowpro/netspector/releases/download/v0.1.1/netspector-0.1.1-windows-x86_64.zip) | Windows 10/11 호환 대상 |
+| Linux x64 | [tar.gz](https://github.com/uknowpro/netspector/releases/download/v0.2.0/netspector-0.2.0-linux-x86_64.tar.gz) | Ubuntu 22.04 이상 / glibc 2.35 이상 |
+| macOS Intel | [tar.gz](https://github.com/uknowpro/netspector/releases/download/v0.2.0/netspector-0.2.0-macos-x86_64.tar.gz) | macOS 15 이상 |
+| macOS Apple Silicon | [tar.gz](https://github.com/uknowpro/netspector/releases/download/v0.2.0/netspector-0.2.0-macos-arm64.tar.gz) | macOS 15 이상 |
+| Windows 10 x86 (32비트) | [zip](https://github.com/uknowpro/netspector/releases/download/v0.2.0/netspector-0.2.0-windows-x86.zip) | 32비트 Windows 10 호환 대상 |
+| Windows 10/11 x64 | [zip](https://github.com/uknowpro/netspector/releases/download/v0.2.0/netspector-0.2.0-windows-x86_64.zip) | Windows 10/11 호환 대상 |
 
 Linux/macOS에서는 `./netspector scan ./examples/demo`, Windows PowerShell에서는 `.\netspector.exe scan .\examples\demo`로 실행합니다.
 
-압축 파일을 풀어 Ubuntu 22.04, macOS 15의 두 아키텍처, Windows Server 2022에서 실행 검증합니다. x86 버전은 32비트 Python으로 빌드하고 압축 전후 PE32/I386 실행 파일 헤더를 검증합니다. Windows 두 버전의 실행 검증은 Windows Server 2022에서 수행하며, x86은 WOW64로 실행합니다. 32비트 Windows 10 실기기 검증은 아직 진행하지 않았습니다. Windows 파일은 미서명이며 macOS 파일은 Developer ID 서명·공증이 없어 다운로드 보호 기능에서 사용자 승인이 필요할 수 있습니다. [릴리스 노트](docs/releases/v0.1.1.md)와 `SHA256SUMS`를 확인하세요. Linux ARM64, Alpine/musl, Windows ARM64, Linux/macOS 32비트 실행 파일은 제공하지 않습니다. 32비트 Windows에서는 `windows-x86.zip`을 선택하세요. `windows-x86_64.zip`은 64비트 Windows 전용입니다.
+압축 파일을 풀어 Ubuntu 22.04, macOS 15의 두 아키텍처, Windows Server 2022에서 실행 검증합니다. x86 버전은 32비트 Python으로 빌드하고 압축 전후 PE32/I386 실행 파일 헤더를 검증합니다. Windows 두 버전의 실행 검증은 Windows Server 2022에서 수행하며, x86은 WOW64로 실행합니다. 32비트 Windows 10 실기기 검증은 아직 진행하지 않았습니다. Windows 파일은 미서명이며 macOS 파일은 Developer ID 서명·공증이 없어 다운로드 보호 기능에서 사용자 승인이 필요할 수 있습니다. [릴리스 노트](docs/releases/v0.2.0.md)와 `SHA256SUMS`를 확인하세요. Linux ARM64, Alpine/musl, Windows ARM64, Linux/macOS 32비트 실행 파일은 제공하지 않습니다. 32비트 Windows에서는 `windows-x86.zip`을 선택하세요. `windows-x86_64.zip`은 64비트 Windows 전용입니다.
 
 ## 소스에서 설치
 
@@ -68,6 +67,8 @@ Windows에서는 `.venv\Scripts\activate`로 활성화합니다. 의존성 설�
 | JSON·YAML·TOML | URL 문자열과 설정 키 경로 |
 | `.properties` | URL 값, 키·값 이스케이프, 이어진 줄 및 줄 번호 |
 | `.env*` | URL 형태의 할당 값과 줄 번호 |
+| `.ini` | 섹션·DEFAULT 상속, URL 값, host/port 조합 |
+| `.xml` | 텍스트·속성 URL, Spring bean 속성·map 항목, web.xml servlet 매핑과 context/init 파라미터 |
 
 분석 대상 코드를 import하거나 실행하지 않으며, YAML은 안전한 로더로 읽습니다. 발견한 주소로 접속하거나 현재 프로세스의 환경변수로 값을 보완하지 않습니다. Helm·Terraform 명령도 실행하지 않습니다.
 
@@ -143,11 +144,28 @@ JDK·Maven·Gradle이나 네이티브 파서 의존성 없이 분석하므로 Wi
 | `System.getenv("NAME")` | 기존 dotenv·Kubernetes 환경변수 후보 연결 |
 | 필드의 `@Value("${key}")` | UTF-8 `.properties`, `application*.yaml/yml/json`, `bootstrap*.yaml/yml/json`의 정확한 키와 같은 이름의 환경변수에서 URL 후보 연결 |
 
-import 또는 완전한 패키지명이 확인된 Spring·HTTP 타입을 사용합니다. 메서드나 애너테이션 이름만 같은 사용자 클래스는 제외합니다. 템플릿 치환, 프로파일 우선순위, 유연한 설정 키 이름 변환, 기본값은 평가하지 않습니다. 여러 설정 파일의 값은 후보로 남기며 런타임 설정을 읽지 않습니다. properties의 이어진 줄과 Unicode 등 이스케이프를 지원합니다.
+import 또는 완전한 패키지명이 확인된 Spring·HTTP 타입을 사용합니다. 메서드나 애너테이션 이름만 같은 사용자 클래스는 제외합니다. 설정의 이름 참조는 아래의 제한된 변수 해석을 적용하며, 프로파일 우선순위·유연한 설정 키 이름 변환·기본값은 평가하지 않습니다. 여러 설정 파일의 값은 후보로 남기며 런타임 설정을 읽지 않습니다. properties의 이어진 줄과 Unicode 등 이스케이프를 지원합니다.
 
 아직 지원하지 않는 범위는 상속·인터페이스의 컨트롤러 매핑, 커스텀 조합 애너테이션, HTTP 메서드·파라미터·헤더 라우팅 조건, servlet context path, WebClient·RestClient·Feign·OkHttp·Apache HttpClient, DB·메시지 브로커, 파일 간 상수, 팩토리 반환 클라이언트, `var` 타입 추론, 필드 초기화의 HTTP 호출, 일반적인 빌더·데이터 흐름입니다. 람다 본문·익명/지역 클래스와 불확실한 중첩 바인딩은 건너뛰거나 미해결로 남깁니다. 텍스트 블록을 URL로 해석하지 않으며 문자열 밖의 Unicode 전처리, 전체 Java 문법 검증, 리플렉션, 생성 코드도 모델링하지 않습니다. 괄호나 리터럴이 닫히지 않으면 해당 파일의 진단을 남기고 다른 파일은 계속 분석합니다. 런타임 Bean 등록이나 메서드를 실행하지 않습니다.
 
 API 의미는 공식 [Spring 요청 매핑](https://docs.spring.io/spring-framework/reference/web/webmvc/mvc-controller/ann-requestmapping.html)과 [JDK HttpRequest](https://docs.oracle.com/en/java/javase/21/docs/api/java.net.http/java/net/http/HttpRequest.html) 문서를 참고하세요.
+
+## 설정 변수와 host/port 조합
+
+```bash
+netspector scan examples/config --format html --output config-report.html
+```
+
+INI·XML·properties·dotenv·JSON·YAML·TOML을 공통 설정 분석기로 처리합니다.
+
+- 스캔한 선언에서 정확한 이름의 `${NAME}`을 재귀적으로 해석하고 파일·키·줄 번호를 근거로 남깁니다. 누락·순환·지원하지 않는 치환 문법은 미해결로 남기며 셸이나 현재 프로세스 환경변수를 읽지 않습니다.
+- 같은 그룹의 `host`/`hostname`과 `port`를 결합하고 `scheme`/`protocol`·`path`를 선택적으로 반영합니다. 점 또는 밑줄로 구분된 키를 지원합니다. `api.host=api.example.com`, `api.port=443`, `api.scheme=https`는 `https://api.example.com:443` 후보가 됩니다. scheme이 없으면 `api.example.com:443`으로 표시하고 프로토콜을 추측하지 않습니다.
+- 파일·YAML 문서별로 구분합니다. 각 후보는 자체 선언과 **외부 파일/문서 한 개**까지만 참조하므로 여러 외부 파일의 개발/운영 값을 섞지 않습니다. 일치하는 환경별 후보는 모두 남기고 우선순위나 실제 적용 여부를 추측하지 않습니다.
+- 해석한 dotenv URL은 `getenv`, properties·application/bootstrap 설정 URL은 Java `@Value` 후보에 연결합니다. host/port 조합으로 존재하지 않는 URL 속성을 만들어 연결하지 않습니다.
+
+설정 결과는 방향 `unknown`, 상태 `candidate`, 종류 `configuration` 또는 `configuration-endpoint`입니다. 잘못되거나 불완전한 조합은 `unresolved`로 남깁니다. 설정 키만으로 실제 수신·발신을 확정하지 않습니다. 중복 키를 임의 선택하지 않으며, INI는 대소문자를 구분하고 `%`를 그대로 보존하며 DEFAULT 상속과 원본 줄 번호를 지원합니다. XML은 스키마 주소를 제외하고 요소 줄 번호, Spring property의 value 속성·중첩 `<value>`·map 항목을 읽습니다. web.xml servlet 패턴은 Inbound 선언으로 표시합니다. DTD·엔티티는 확장 전에 차단하며 bean 참조·import·외부 리소스·런타임 등록 여부는 따라가지 않습니다.
+
+제한: `${NAME:default}`, 셸 확장, INI `%()` 치환, Spring relaxed binding·프로파일 활성화, Kubernetes `$(VAR)`는 평가하지 않습니다. dotenv 따옴표는 어휘 분석 단계에서 제거하며 이후 참조 해석은 정적 후보 검색입니다. 셸 인용 규칙이나 dotenv 로딩 순서를 재현하지 않습니다. 외부 문서 두 개 이상을 거쳐야 하는 참조는 미해결입니다. 최대 16단계·8 KiB 값·값당 2,048회 참조 방문·외부 후보 문서 64개로 제한하며 크기·작업량·후보 수 초과 시 진단을 남깁니다. 순환 YAML 별칭도 거부합니다. 일반 `.conf`, Jenkinsfile, 원본 Helm 템플릿, Terraform `.tf`는 아직 전용 분석기가 필요합니다.
 
 ## Kubernetes 연결 경로
 
@@ -180,7 +198,7 @@ netspector scan ./project --format html --output report.html
 
 ```text
 프로젝트 파일
-    → Python AST / Java 토큰 / 안전한 YAML / JSON / TOML / properties / dotenv 분석
+    → Python AST / Java 토큰 / 안전한 YAML / JSON / TOML / properties / dotenv / INI / XML 분석
     → 공통 결과 모델과 근거 위치
     → 정렬과 완전 중복 제거
     → 표 / JSON / CSV / HTML
@@ -188,7 +206,7 @@ netspector scan ./project --format html --output report.html
 
 ## 제한 사항과 로드맵
 
-초기 버전은 전체 프로그램의 데이터 흐름을 분석하지 않습니다. Python은 단일 직선형 할당만 해석하며, 재할당·조건부 할당·매개변수에 가려진 값은 미확정으로 남깁니다. 문자열 조합, 환경변수 기본값·확장, 래퍼 함수, 클래스 메서드, 람다, comprehension, 라우터 prefix·mount, Python 파일 간 참조는 미지원입니다. 함수 호출 간 실행 순서와 동적인 객체 변경은 모델링하지 않습니다. 환경변수 후보는 스캔 루트 전체에서 찾으므로 앱별로 스캔하거나 제외 옵션으로 범위를 제한하세요.
+초기 버전은 전체 프로그램의 데이터 흐름을 분석하지 않습니다. Python은 단일 직선형 할당만 해석하며, 재할당·조건부 할당·매개변수에 가려진 값은 미확정으로 남깁니다. 문자열 조합, 런타임 환경변수 기본값·확장, 래퍼 함수, 클래스 메서드, 람다, comprehension, 라우터 prefix·mount, Python 파일 간 참조는 미지원입니다. 함수 호출 간 실행 순서와 동적인 객체 변경은 모델링하지 않습니다. 환경변수 후보는 스캔 루트 전체에서 찾으므로 앱별로 스캔하거나 제외 옵션으로 범위를 제한하세요.
 
 Kubernetes 포트는 선언이며 실제 수신 상태를 의미하지 않습니다. Ingress TLS, 실제 도달 가능성, NetworkPolicy, Secret 참조와 실제 배포 환경 선택은 아직 분석하지 않습니다. ConfigMap은 컨테이너 환경변수 참조에 한해 지원합니다. 설정 URL 후보와 다른 결과가 중복될 수 있으며, 일부 파싱 실패 시 나머지 분석 결과는 유지합니다.
 
@@ -203,6 +221,7 @@ Kubernetes 포트는 선언이며 실제 수신 상태를 의미하지 않습니
 - [x] 초기 Java·Spring 및 JDK HTTP 요청 분석
 - [ ] 추가 Java 클라이언트·언어 및 DB·메시지 브로커 지원
 - [x] Linux·macOS·Windows 실행 파일 배포
+- [x] XML·INI 및 제한된 설정 변수·host/port 조합
 - [ ] 실제 프로젝트 기반 회귀 테스트 확대
 
 원본 Helm 템플릿과 Terraform `.tf`는 미지원입니다. 렌더링된 Helm YAML은 Kubernetes YAML로 분석할 수 있습니다.

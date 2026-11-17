@@ -16,6 +16,7 @@ from .java_analyzer import analyze_java
 from .java_properties import properties
 from .resolution import Environment
 from .topology import Topology
+from .configuration import Configurations, flatten, ini_entries, xml_entries
 
 URL = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*://")
 SKIP = {".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build", "target", ".gradle"}
@@ -43,6 +44,7 @@ def scan(root: Path, excludes: list[str] | None = None) -> dict:
     findings, diagnostics = [], []
     environment = Environment(safe_target)
     topology = Topology()
+    configurations = Configurations()
 
     def emit(file, line, direction, kind, target, status="confirmed", protocol=None, port=None, reference=None, evidence=None):
         target = safe_target(str(target)) if URL.match(str(target)) else str(target)
@@ -59,7 +61,7 @@ def scan(root: Path, excludes: list[str] | None = None) -> dict:
             continue
         if any(fnmatch.fnmatch(rel, p) or Path(rel).match(p) for p in excludes or []):
             continue
-        if not path.is_file() or path.suffix not in {".py", ".java", ".properties", ".json", ".yaml", ".yml", ".toml"} and not path.name.startswith(".env"):
+        if not path.is_file() or path.suffix not in {".py", ".java", ".properties", ".json", ".yaml", ".yml", ".toml", ".ini", ".xml"} and not path.name.startswith(".env"):
             continue
         try:
             if path.stat().st_size > 2_000_000:
@@ -71,58 +73,50 @@ def scan(root: Path, excludes: list[str] | None = None) -> dict:
             elif path.suffix == ".java":
                 analyze_java(source, rel, emit, safe_target)
             elif path.suffix == ".properties":
-                for key, value, line in properties(source):
-                    environment.add('property:' + key, value, rel, line, reference=key)
-                    if URL.match(value):
-                        emit(rel, line, "unknown", "configuration", value, "candidate", reference=key)
+                configurations.add(properties(source), rel, 'property:')
+            elif path.suffix == ".ini":
+                configurations.add(ini_entries(source), rel, 'property:')
+            elif path.suffix == ".xml":
+                entries, routes = xml_entries(source)
+                configurations.add(entries, rel, 'property:')
+                for target, line, servlet in routes:
+                    emit(rel, line, "inbound", "route", target, "declared", reference=servlet)
             elif path.suffix in {".yaml", ".yml"}:
                 for document_index, doc in enumerate(yaml.safe_load_all(source)):
-                    config_scan(doc, rel, emit, environment=environment if path.name.startswith(("application", "bootstrap")) else None)
+                    configurations.add(flatten(doc), rel, "property:" if path.name.startswith(("application", "bootstrap")) else None)
                     if isinstance(doc, dict):
                         topology.document(doc, rel, f"documents[{document_index}]")
                         kubernetes_scan(doc, rel, emit)
                         environment.document(doc, rel)
             elif path.suffix == ".json":
                 doc = json.loads(source)
-                config_scan(doc, rel, emit, environment=environment if path.name.startswith(("application", "bootstrap")) else None)
+                configurations.add(flatten(doc), rel, "property:" if path.name.startswith(("application", "bootstrap")) else None)
                 if isinstance(doc, dict):
                     topology.document(doc, rel, "document")
                     kubernetes_scan(doc, rel, emit)
                     environment.document(doc, rel)
             elif path.suffix == ".toml":
-                config_scan(tomllib.loads(source), rel, emit)
+                configurations.add(flatten(tomllib.loads(source)), rel)
             else:
+                entries = []
                 for lineno, line in enumerate(source.splitlines(), 1):
                     match = re.match(r"\s*(?:export\s+)?([\w]+)\s*=\s*(.*?)\s*$", line)
                     if match:
                         key, value = match.groups()
                         parts = shlex.split(value, comments=True, posix=True)
                         value = parts[0] if len(parts) == 1 else ""
-                        environment.add(key, value, rel, lineno)
-                        if URL.match(value):
-                            emit(rel, lineno, "unknown", "configuration", value, "candidate", reference=key)
+                        entries.append((key, value, lineno))
+                configurations.add(entries, rel, "")
         except (OSError, UnicodeError, SyntaxError, ValueError, TypeError, AttributeError, yaml.YAMLError, RecursionError) as exc:
             # Parser messages can contain source secrets: only expose the error type.
             diagnostics.append(dict(file=rel, message=type(exc).__name__))
     diagnostics.extend(environment.build())
+    diagnostics.extend(configurations.build(emit, environment))
     environment.resolve(findings)
     connections, topology_diagnostics = topology.build()
     diagnostics.extend(topology_diagnostics)
     unique = {json.dumps(f, sort_keys=True): f for f in findings}
     return dict(schema_version="1", findings=sorted(unique.values(), key=lambda f: (f["file"], f["line"] or 0, f["kind"], f["target"])), diagnostics=diagnostics, connections=connections)
-
-
-def config_scan(value, file, emit, key="", environment=None):
-    if isinstance(value, dict):
-        for k, v in value.items():
-            config_scan(v, file, emit, f"{key}.{k}".strip("."), environment)
-    elif isinstance(value, list):
-        for i, v in enumerate(value):
-            config_scan(v, file, emit, f"{key}[{i}]", environment)
-    elif isinstance(value, str) and URL.match(value):
-        if environment is not None:
-            environment.add('property:' + key, value, file, reference=key)
-        emit(file, None, "unknown", "configuration", value, "candidate", reference=key)
 
 
 def kubernetes_scan(doc, file, emit):

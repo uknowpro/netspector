@@ -22,23 +22,22 @@ Network knowledge is scattered across application code, environment files, and d
 
 Use it to review application dependencies, investigate declared exposure, or export an inventory for further analysis. It performs static analysis: a finding describes code or configuration, not observed traffic or verified reachability.
 
-> **Development branch (`0.2.0.dev0`):** Java analysis, Kubernetes network paths, and HTML export are available when installed from the current source. The downloadable v0.1.1 executables do not yet include these features.
 
 ## Download standalone executables
 
-Download **[netspector v0.1.1](https://github.com/uknowpro/netspector/releases/tag/v0.1.1)**, extract the archive, and run the executable. Python is bundled.
+Download **[netspector v0.2.0](https://github.com/uknowpro/netspector/releases/tag/v0.2.0)**, extract the archive, and run the executable. Python is bundled.
 
 | System | Download | Target |
 | --- | --- | --- |
-| Linux x64 | [tar.gz](https://github.com/uknowpro/netspector/releases/download/v0.1.1/netspector-0.1.1-linux-x86_64.tar.gz) | Ubuntu 22.04+ / glibc 2.35+ |
-| macOS Intel | [tar.gz](https://github.com/uknowpro/netspector/releases/download/v0.1.1/netspector-0.1.1-macos-x86_64.tar.gz) | macOS 15+ |
-| macOS Apple Silicon | [tar.gz](https://github.com/uknowpro/netspector/releases/download/v0.1.1/netspector-0.1.1-macos-arm64.tar.gz) | macOS 15+ |
-| Windows 10 x86 (32-bit) | [zip](https://github.com/uknowpro/netspector/releases/download/v0.1.1/netspector-0.1.1-windows-x86.zip) | 32-bit Windows 10 compatibility target |
-| Windows 10/11 x64 | [zip](https://github.com/uknowpro/netspector/releases/download/v0.1.1/netspector-0.1.1-windows-x86_64.zip) | Windows 10/11 compatibility target |
+| Linux x64 | [tar.gz](https://github.com/uknowpro/netspector/releases/download/v0.2.0/netspector-0.2.0-linux-x86_64.tar.gz) | Ubuntu 22.04+ / glibc 2.35+ |
+| macOS Intel | [tar.gz](https://github.com/uknowpro/netspector/releases/download/v0.2.0/netspector-0.2.0-macos-x86_64.tar.gz) | macOS 15+ |
+| macOS Apple Silicon | [tar.gz](https://github.com/uknowpro/netspector/releases/download/v0.2.0/netspector-0.2.0-macos-arm64.tar.gz) | macOS 15+ |
+| Windows 10 x86 (32-bit) | [zip](https://github.com/uknowpro/netspector/releases/download/v0.2.0/netspector-0.2.0-windows-x86.zip) | 32-bit Windows 10 compatibility target |
+| Windows 10/11 x64 | [zip](https://github.com/uknowpro/netspector/releases/download/v0.2.0/netspector-0.2.0-windows-x86_64.zip) | Windows 10/11 compatibility target |
 
 Linux/macOS: `./netspector scan ./examples/demo`. Windows PowerShell: `.\netspector.exe scan .\examples\demo`.
 
-Native archives are smoke-tested on Ubuntu 22.04, macOS 15 (both architectures), and Windows Server 2022. The x86 build uses 32-bit Python and its PE32/I386 executable headers are verified before and after packaging. Both Windows builds are executed on Windows Server 2022 (x86 via WOW64); testing on a native 32-bit Windows 10 device is pending. Windows binaries are unsigned; macOS binaries are not Developer ID signed or notarized. Download protections may require user approval. See the [release notes](docs/releases/v0.1.1.md) for details and use the release's `SHA256SUMS` to check downloads. Linux ARM64, Alpine/musl, Windows ARM64, and 32-bit Linux/macOS standalone binaries are not provided. Choose `windows-x86.zip` for 32-bit Windows; `windows-x86_64.zip` requires 64-bit Windows.
+Native archives are smoke-tested on Ubuntu 22.04, macOS 15 (both architectures), and Windows Server 2022. The x86 build uses 32-bit Python and its PE32/I386 executable headers are verified before and after packaging. Both Windows builds are executed on Windows Server 2022 (x86 via WOW64); testing on a native 32-bit Windows 10 device is pending. Windows binaries are unsigned; macOS binaries are not Developer ID signed or notarized. Download protections may require user approval. See the [release notes](docs/releases/v0.2.0.md) for details and use the release's `SHA256SUMS` to check downloads. Linux ARM64, Alpine/musl, Windows ARM64, and 32-bit Linux/macOS standalone binaries are not provided. Choose `windows-x86.zip` for 32-bit Windows; `windows-x86_64.zip` requires 64-bit Windows.
 
 ## Install from source
 
@@ -82,6 +81,8 @@ The actual table also includes a source column. The dynamic `NOTIFY_URL` call no
 | JSON, YAML, TOML | URL-valued strings with configuration key paths |
 | `.properties` | URL-valued properties, escaped keys/values, continuations, and line numbers |
 | `.env*` | URL-valued assignments with line numbers |
+| `.ini` | Sections, DEFAULT inheritance, URL values, host/port groups |
+| `.xml` | URL text/attributes, Spring bean properties/map entries, web.xml servlet mappings and context/init parameters |
 
 No target application code is imported or executed. YAML uses a safe loader. The scanner does not contact discovered endpoints, read your process environment to resolve variables, or invoke Helm/Terraform.
 
@@ -157,11 +158,28 @@ Java is scanned without a JDK, Maven, Gradle, or native parser dependency, inclu
 | `System.getenv("NAME")` | Existing dotenv/Kubernetes environment candidates |
 | Field `@Value("${key}")` | Exact-key URL candidates from UTF-8 `.properties`, `application*.yaml/yml/json`, `bootstrap*.yaml/yml/json`, and exact-name environment declarations |
 
-Imports or fully qualified Spring/client types are required. Classes merely using the same method or annotation names are not treated as Spring/HTTP clients. Named placeholders, profile priority, relaxed property naming, and default values are not evaluated. Multiple configuration sources remain candidates; no runtime configuration is read. Properties files support continuations and escapes, including Unicode escapes.
+Imports or fully qualified Spring/client types are required. Classes merely using the same method or annotation names are not treated as Spring/HTTP clients. Named placeholders in configuration use the bounded resolver described below; profile priority, relaxed property naming, and default values are not evaluated. Multiple configuration sources remain candidates; no runtime configuration is read. Properties files support continuations and escapes, including Unicode escapes.
 
 Remaining cases include inherited/interface controller mappings, custom composed annotations, HTTP-method/parameter/header routing constraints, servlet context paths, WebClient, RestClient, Feign, OkHttp, Apache HttpClient, database/broker clients, cross-file constants, factory-returned clients, `var` type inference, field-initializer HTTP calls, and general builder/data-flow analysis. Lambda bodies, anonymous/local classes, and uncertain nested bindings are skipped or left unresolved. Text blocks are skipped rather than interpreted as URLs. Unicode preprocessing outside string literals, full Java syntax validation, reflection, and generated code are not modeled. Unbalanced/unterminated lexical structures produce file diagnostics; other files continue scanning. Methods and runtime bean registration are not executed.
 
 See the official [Spring request mapping](https://docs.spring.io/spring-framework/reference/web/webmvc/mvc-controller/ann-requestmapping.html) and [JDK HttpRequest](https://docs.oracle.com/en/java/javase/21/docs/api/java.net.http/java/net/http/HttpRequest.html) documentation for API semantics.
+
+## Configuration references and endpoint groups
+
+```bash
+netspector scan examples/config --format html --output config-report.html
+```
+
+INI, XML, properties, dotenv, JSON, YAML, and TOML share a conservative configuration pass:
+
+- Resolve exact `${NAME}` references recursively from scanned declarations, retaining file/key/line evidence. Missing values, cycles, and unsupported placeholder syntax remain unresolved. The shell and process environment are never consulted.
+- Combine sibling `host`/`hostname` and `port` keys, with optional `scheme`/`protocol` and `path`. Dot-separated and underscore-separated names are supported. For example, `api.host=api.example.com`, `api.port=443`, and `api.scheme=https` yield `https://api.example.com:443`. Without a scheme, the result is `api.example.com:443` with no inferred protocol.
+- Keep each file and YAML document separate. A candidate may use its own declarations and **one** other file/document; dev/prod values are not combined across multiple external files. Every matching variant remains a candidate, with no profile precedence or application association inferred.
+- Export resolved dotenv URLs to `getenv` candidates and resolved properties/application/bootstrap configuration URLs to Java `@Value` candidates. Synthetic host/port groups do not invent a URL property.
+
+These are `unknown` direction, `candidate` findings (`configuration` or `configuration-endpoint`), not observed connections. Invalid or incomplete groups remain `unresolved`. Arbitrary keys are not evidence of a listener or outbound call. Duplicate keys are not selected silently. INI uses case-sensitive keys, literal `%` values, and DEFAULT inheritance; inherited entries report their source line. XML ignores schema namespace URLs, records element lines, supports Spring property value attributes/nested `<value>` and map entries, and reads web.xml servlet patterns as declared inbound routes. XML DTDs and entities are rejected before expansion; bean references, imports, external resources, and runtime bean activation are not followed.
+
+Limits: `${NAME:default}`, shell expansion, INI `%()` interpolation, Spring relaxed binding/profile activation, and Kubernetes `$(VAR)` expansion are not evaluated. Dotenv quotes are stripped by the lexical reader; reference resolution is a static candidate search, not a simulation of shell quoting or dotenv load order. Cross-file chains requiring more than one external document remain unresolved. Expansion is bounded to 16 levels, 8 KiB values, 2,048 resolution visits per value, and 64 external candidate documents; size/work/candidate limits produce diagnostics. Recursive YAML aliases are rejected. Generic `.conf`, Jenkinsfile, raw Helm templates, and Terraform `.tf` still require dedicated analyzers.
 
 ## Kubernetes network paths
 
@@ -192,7 +210,7 @@ Open `report.html` in a browser. The standalone file includes summary counts, co
 
 ```text
 Project files
-    → Python AST / Java tokens / safe YAML / JSON / TOML / properties / dotenv readers
+    → Python AST / Java tokens / safe YAML / JSON / TOML / properties / dotenv / INI / XML readers
     → Common finding model + source evidence
     → Deterministic ordering and exact deduplication
     → Table / JSON / CSV / HTML
@@ -200,7 +218,7 @@ Project files
 
 ## Limits and roadmap
 
-This is an initial, deliberately bounded implementation. It does not perform whole-program data-flow analysis. For Python, only unique straight-line assignments are resolved; reassigned names, conditional bindings, and parameter shadowing remain unresolved. String interpolation, environment defaults/expansion, wrapper functions, class methods, lambdas, comprehensions, router mounting/prefix composition, and cross-file Python references are unsupported. Source analysis does not model execution order across function calls or dynamic monkey-patching. Environment declarations are searched across the scan root, so scan each application separately or use exclusions to limit candidates.
+This is an initial, deliberately bounded implementation. It does not perform whole-program data-flow analysis. For Python, only unique straight-line assignments are resolved; reassigned names, conditional bindings, and parameter shadowing remain unresolved. String interpolation, runtime environment defaults/expansion, wrapper functions, class methods, lambdas, comprehensions, router mounting/prefix composition, and cross-file Python references are unsupported. Source analysis does not model execution order across function calls or dynamic monkey-patching. Environment declarations are searched across the scan root, so scan each application separately or use exclusions to limit candidates.
 
 Kubernetes ports indicate declarations, not actual listeners. Ingress TLS, effective reachability, NetworkPolicy, Secret resolution and deployment/environment selection are not modeled. ConfigMap references are supported only for container environment declarations. Generic URL findings may overlap with source findings. Parser failures preserve other scan results.
 
@@ -215,6 +233,7 @@ Planned next steps:
 - [x] Initial Java/Spring and JDK HTTP request analysis
 - [ ] Additional Java clients, languages, and database/broker clients
 - [x] Standalone releases for Linux, macOS, and Windows
+- [x] XML/INI and bounded configuration references / host-port groups
 - [ ] Larger real-world regression fixtures
 
 Raw Helm templates and Terraform `.tf` files are not supported. Rendered Helm YAML can be scanned as Kubernetes YAML.

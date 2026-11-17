@@ -39,3 +39,5 @@ jobs:
       - run: netspector scan examples/demo --format html --output report.html
       - run: netspector scan examples/java --format json
       - run: netspector scan examples/java --format html --output java-report.html
+      - run: netspector scan examples/config --format json
+      - run: netspector scan examples/config --format html --output config-report.html

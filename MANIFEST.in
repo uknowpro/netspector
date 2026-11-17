@@ -1,5 +1,6 @@
 include LICENSE README.md README.ko.md
-recursive-include examples *.py *.java *.yaml *.properties
+recursive-include examples *.py *.java *.yaml *.properties *.xml *.ini
+include examples/config/.env.example
 recursive-include tests *.py
 recursive-include scripts *.py
 recursive-include docs/releases *.md
